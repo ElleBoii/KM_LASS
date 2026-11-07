@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>KM Sammanställning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+/* Layout: scoreboard-like header, a control rail, then one big sortable results table. */
+:root{
+  --bg:#f3f6f8; --surface:#ffffff; --ink:#0f2230; --muted:#5b6f7d; --line:#d7e0e6;
+  --accent:#0a6b93; --accent-ink:#ffffff; --lane:#e2b714; --lane-soft:#fbf1c9;
+  --bad:#b4442f; --good:#2f7d4f; --row:#eef3f6;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1820; --surface:#12222c; --ink:#e3edf2; --muted:#93a8b5; --line:#24394650;
+  --accent:#4fb3dd; --accent-ink:#06141b; --lane:#e9c443; --lane-soft:#3a3214;
+  --bad:#e5826c; --good:#71c493; --row:#182c38; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1820; --surface:#12222c; --ink:#e3edf2; --muted:#93a8b5; --line:#24394650;
+  --accent:#4fb3dd; --accent-ink:#06141b; --lane:#e9c443; --lane-soft:#3a3214;
+  --bad:#e5826c; --good:#71c493; --row:#182c38; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:grid;gap:18px}
+header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:end;justify-content:space-between}
+h1{font-family:var(--f-display);font-weight:700;font-size:2.4rem;line-height:1;margin:0;letter-spacing:.01em;text-wrap:balance}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);margin:.35rem 0 0;max-width:60ch}
+.lanes{height:6px;border-radius:3px;background:repeating-linear-gradient(90deg,var(--lane) 0 14px,var(--accent) 14px 28px);opacity:.85}
+.btn{font:inherit;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:6px 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:disabled:hover{border-color:var(--line)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:focus-visible,select:focus-visible,input:focus-visible,th button:focus-visible,.chip:focus-visible,tr.sw:focus-visible{outline:2px solid var(--lane);outline-offset:2px}
+.notice{background:var(--lane-soft);border-radius:8px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.err{background:var(--surface);border-left:4px solid var(--bad);padding:8px 12px;border-radius:4px}
+.meets{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.meets .lbl{font-family:var(--f-display);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-size:.85rem;margin-right:4px}
+.chip{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 6px 4px 12px;font:inherit;cursor:pointer}
+.chip[aria-pressed="false"]{opacity:.5;text-decoration:line-through}
+.chip .meta{color:var(--muted);font-size:.8rem}
+.chip .x{border:0;background:var(--row);color:var(--muted);border-radius:999px;width:22px;height:22px;cursor:pointer;font:inherit;line-height:1}
+.controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:end;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.field{display:grid;gap:3px;min-width:0}
+.field label{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.field input,.field select{font:inherit;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px;padding:5px 8px;max-width:100%}
+.field input[type=number]{width:5.2em}
+#q{width:14em}
+.check{display:flex;gap:6px;align-items:center;padding-bottom:5px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px}
+.tabs button{font-family:var(--f-display);font-size:1.05rem;font-weight:600;letter-spacing:.04em;border:0;background:none;color:var(--muted);padding:5px 14px;border-radius:6px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.count{color:var(--muted);font-size:.85rem}
+.tablebox{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{position:sticky;top:0;background:var(--surface);z-index:1}
+th button{font:inherit;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;font-weight:600;color:var(--muted);background:none;border:0;padding:0;cursor:pointer}
+th.sorted button{color:var(--accent)}
+td.num,th.num{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+td.rank{font-family:var(--f-display);font-size:1.1rem;font-weight:600;color:var(--muted);width:2.5em}
+tr.sw{cursor:pointer}
+tr.sw:hover td{background:var(--row)}
+tr.open td{background:var(--row)}
+.name{font-weight:600}
+.pts{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
+.pts i{display:inline-block;height:6px;border-radius:3px;background:var(--accent);opacity:.75}
+.big{font-weight:600;color:var(--ink)}
+.status{font-size:.75rem;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--row);color:var(--bad)}
+.detail td{background:var(--bg);padding:10px 14px 14px 46px;white-space:normal}
+.detail table{min-width:0;width:auto;background:transparent}
+.detail th,.detail td{border-bottom:1px dashed var(--line);padding:4px 12px 4px 0;background:transparent}
+.detail tr.used td:first-child::before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--lane);margin-right:6px}
+.legend{color:var(--muted);font-size:.8rem;margin-top:6px}
+.empty{padding:36px 16px;text-align:center;color:var(--muted)}
+.copybox{width:100%;height:140px;font-family:var(--f-mono);font-size:.8rem;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px}
+.foot{color:var(--muted);font-size:.8rem;max-width:75ch}
+@media (max-width:560px){h1{font-size:2rem} #q{width:100%} .field.grow{flex:1 1 100%}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>KM Sammanställning</h1>
+    </div>
+  </header>
+
+  <div id="errors"></div>
+
+  <div class="meets" id="meets"></div>
+
+  <div class="controls">
+    <div class="field grow"><label for="q">Sök namn</label><input id="q" type="search" placeholder="t.ex. Lindqvist"></div>
+    <div class="field"><label for="cls">Åldersklass</label><select id="cls"><option value="">Alla</option><option value="13-14">13-14 år</option><option value="15-16">15-16 år</option><option value="17-19">17-19 år</option><option value="20+">20 år och äldre</option></select></div>
+    <div class="field"><label for="gender">Kön</label><select id="gender"><option value="">Alla</option><option value="F">Damer</option><option value="M">Herrar</option></select></div>
+    <div class="field"><label for="event">Gren</label><select id="event"><option value="">Alla</option></select></div>
+    <div class="field"><label for="topX">Visa topp</label><select id="topX"><option value="">Alla</option><option>5</option><option>10</option><option>15</option><option>25</option><option>50</option></select></div>
+    <div class="field" data-only="swimmers"><label for="kmCount">Antal KM</label><select id="kmCount" title="Antal KM som resultaten baseras på"><option selected>1</option><option>2</option><option>3</option><option>4</option></select></div>
+    <div class="field" data-only="swimmers"><label for="perKm">Antal lopp per KM</label><select id="perKm" title="Antal lopp som måste finnas på varje KM"><option>1</option><option>2</option><option selected>3</option><option>4</option></select></div>
+    <label class="check" data-only="results"><input id="bestOnly" type="checkbox" checked> Visa endast bästa resultat</label>
+  </div>
+
+  <div class="bar">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-view="swimmers" aria-selected="true">Simmare</button>
+      <button role="tab" data-view="results" aria-selected="false">Alla lopp</button>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="count" id="count"></span>
+      <button class="btn primary" id="pdf" type="button">Ladda ner PDF</button>
+    </div>
+  </div>
+
+  <div class="tablebox"><table id="tbl"></table></div>
+
+  <p class="foot">Poängen hämtas direkt från tävlingens resultatfil. Varje tävling är ett KM. På fliken Simmare räknas per KM de bästa loppen, så många som "Antal lopp per KM" anger, och simmaren måste ha minst så många lopp med poäng på det KM:et. Summan är de bästa KM-summorna, så många KM som "Antal KM" anger. Simmare som inte uppfyller kraven visas inte. Samma person i olika tävlingar matchas på namn, födelseår och kön. Diskade och strukna lopp ger inga poäng. Grenar med färre än fem startande (alla åldersklasser räknade ihop), klasser för 12 år och yngre samt utom tävlan tas inte med. Sidan visar namn, födelseår, klubb och resultat från KM. Vill du att dina uppgifter tas bort, kontakta sidans ansvarige.</p>
+</div>
+
+<script>
+// PDF-nedladdningen är under utveckling. Sätt till true för att slå på knappen igen.
+const PDF_AKTIV=true;
+
+const STROKES={FREE:"Frisim",BACK:"Ryggsim",BREAST:"Bröstsim",FLY:"Fjärilsim",MEDLEY:"Medley",IMRELAY:"Lagmedley"};
+const COURSE={SCM:"25 m",LCM:"50 m",SCY:"25 yd",SCM16:"16 m"};
+const BAD_STATUS={DSQ:"Disk",DNS:"Ej start",DNF:"Ej mål",WDR:"Struken",SICK:"Sjuk",EXH:"Uppvisning"};
+
+const state={meets:[],results:[],view:"swimmers",open:new Set(),
+  sort:{swimmers:["top",-1],results:["points",-1]}};
+let meetSeq=0;
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function fmtTime(h){
+  if(h==null)return "";
+  const cs=h%100,tot=Math.floor(h/100),s=tot%60,m=Math.floor(tot/60)%60,hr=Math.floor(tot/3600);
+  const pad=n=>String(n).padStart(2,"0");
+  return (hr?hr+":"+pad(m)+":":(m?m+":":""))+(m||hr?pad(s):s)+"."+pad(cs);
+}
+const eventLabel=r=>`${r.distance} m ${STROKES[r.stroke]||r.stroke||""}`.trim();
+
+// Läser data/index.json (lista över KM-filer) och sedan varje KM-fil.
+// Filerna skapas av lenex_extract.py och innehåller bara det som visas på sidan.
+async function loadAll(){
+  const errs=[];
+  try{
+    const r=await fetch("data/index.json",{cache:"no-cache"});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const files=await r.json();
+    const datas=await Promise.all(files.map(async f=>{
+      try{
+        const resp=await fetch("data/"+encodeURIComponent(f),{cache:"no-cache"});
+        if(!resp.ok)throw new Error(`${f}: HTTP ${resp.status}`);
+        return await resp.json();
+      }catch(e){errs.push(e.message||String(e));return null;}
+    }));
+    for(const d of datas){
+      if(!d)continue;
+      try{addMeet(d);}catch(e){errs.push(e.message||String(e));}
+    }
+    state.meets.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  }catch(e){errs.push("Kunde inte läsa resultatlistan: "+(e.message||e));}
+  $("errors").innerHTML=errs.map(e=>`<div class="err">${esc(e)}</div>`).join("");
+  refreshOptions(); render();
+}
+function addMeet(d){
+  const m={id:++meetSeq,name:d.meet.name,city:"",date:d.meet.date,course:d.meet.course,active:true};
+  if(state.meets.some(x=>x.name===m.name&&x.date===m.date))throw new Error(`${m.name} (${m.date}) är redan inläst.`);
+  const rows=d.results.map(r=>({meetId:m.id,first:r.first,last:r.last,birth:r.birth,gender:r.gender,club:r.club,
+    key:(r.first+"|"+r.last).toLowerCase().trim()+"|"+r.birth+"|"+r.gender,
+    distance:r.distance,stroke:r.stroke,course:m.course,date:m.date,time:r.time,status:r.status,points:r.points,cls:r.cls}));
+  state.meets.push(m); state.results.push(...rows);
+}
+
+/* ---------- filtering & aggregation ---------- */
+function filters(){
+  return {q:$("q").value.trim().toLowerCase(),cls:$("cls").value,gender:$("gender").value,event:$("event").value,
+    perKm:+$("perKm").value||3,kmCount:+$("kmCount").value||1,topX:+$("topX").value||0,bestOnly:$("bestOnly").checked};
+}
+function filtered(f){
+  const active=new Set(state.meets.filter(m=>m.active).map(m=>m.id));
+  return state.results.filter(r=>active.has(r.meetId)
+    &&(!f.cls||r.cls===f.cls)&&(!f.gender||r.gender===f.gender)
+    &&(!f.event||r.distance+"|"+r.stroke===f.event)
+    &&(!f.q||(r.first+" "+r.last).toLowerCase().includes(f.q)));
+}
+function swimmers(rows,f){
+  const map=new Map();
+  for(const r of rows){
+    let s=map.get(r.key);
+    if(!s){s={key:r.key,name:`${r.first} ${r.last}`,birth:r.birth,gender:r.gender,club:r.club,clubDate:r.date,rows:[]};map.set(r.key,s);}
+    if(r.date>=s.clubDate){s.club=r.club;s.clubDate=r.date;}
+    s.rows.push(r);
+  }
+  // Per KM räknas simmarens perKm bästa lopp, och bara om hen har minst så många lopp med poäng där.
+  // Totalen är summan av de kmCount bästa KM-summorna. Simmare med färre godkända KM tas inte med.
+  const out=[];
+  for(const s of map.values()){
+    const valid=s.rows.filter(r=>r.points>0).sort((a,b)=>b.points-a.points);
+    const perMeet=new Map();
+    for(const r of valid)(perMeet.get(r.meetId)??perMeet.set(r.meetId,[]).get(r.meetId)).push(r);
+    const kms=[...perMeet.values()].filter(rs=>rs.length>=f.perKm)
+      .map(rs=>{const used=rs.slice(0,f.perKm);return {used,sum:used.reduce((a,r)=>a+r.points,0)};})
+      .sort((a,b)=>b.sum-a.sum);
+    if(kms.length<f.kmCount)continue;
+    const used=kms.slice(0,f.kmCount);
+    s.counted=new Set(used.flatMap(k=>k.used));
+    s.starts=s.rows.length;
+    s.kms=kms.length;
+    s.best=valid[0]?.points||0;
+    s.bestEvent=valid[0]?eventLabel(valid[0])+" ("+(COURSE[valid[0].course]||valid[0].course)+")":"";
+    s.top=used.reduce((a,k)=>a+k.sum,0);
+    s.n=s.counted.size;
+    s.avg=Math.round(s.top/s.n);
+    out.push(s);
+  }
+  return out;
+}
+
+/* ---------- rendering ---------- */
+const meetName=id=>state.meets.find(m=>m.id===id)?.name||"";
+let maxPts=1;
+const ptsCell=(v,big)=>v?`<span class="pts${big?" big":""}"><i style="width:${Math.round(40*v/maxPts)}px"></i>${v}</span>`:"–";
+
+const COLS={
+  swimmers:[
+    {k:"rank",l:"#",nosort:true},
+    {k:"name",l:"Namn"},{k:"birth",l:"Född",num:true},
+    {k:"kms",l:"KM",num:true},{k:"starts",l:"Starter",num:true},{k:"best",l:"Högsta",num:true,pts:true},
+    {k:"bestEvent",l:"Bästa gren"},{k:"avg",l:"Snitt per lopp",num:true},{k:"top",l:"Summa poäng",num:true,pts:true,big:true}],
+  results:[
+    {k:"meet",l:"Tävling"},{k:"name",l:"Namn"},{k:"birth",l:"Född",num:true},
+    {k:"event",l:"Gren"},{k:"time",l:"Tid",num:true},{k:"points",l:"Poäng",num:true,pts:true,big:true}]
+};
+function viewRows(){
+  const f=filters(),rows=filtered(f),sw=swimmers(rows,f);
+  let list=rows;
+  if(state.view==="results"&&f.bestOnly){
+    const best=new Map();
+    for(const r of rows){const b=best.get(r.key);if(!b||r.points>b.points)best.set(r.key,r);}
+    list=[...best.values()];
+  }
+  let out=state.view==="swimmers"?sw:list.map(r=>({...r,meet:meetName(r.meetId),name:`${r.first} ${r.last}`,event:eventLabel(r),courseL:COURSE[r.course]||r.course}));
+  state.total=out.length;
+  if(f.topX){const k=state.view==="swimmers"?"top":"points";out=out.sort((a,b)=>b[k]-a[k]).slice(0,f.topX);}
+  return out;
+}
+function sortRows(rows){
+  const [k,dir]=state.sort[state.view];
+  return rows.sort((a,b)=>{
+    let x=a[k],y=b[k];
+    if(k==="time"){x=x??1e12;y=y??1e12;}
+    if(k==="place"){x=x??1e9;y=y??1e9;}
+    if(typeof x==="number"||typeof y==="number")return ((+x||0)-(+y||0))*dir;
+    return String(x??"").localeCompare(String(y??""),"sv")*dir;
+  });
+}
+function render(){
+  const cols=COLS[state.view];
+  const rows=sortRows(viewRows());
+  const ptsKey=cols.find(c=>c.big)?.k; maxPts=Math.max(1,...rows.map(r=>r[ptsKey]||0),...rows.map(r=>r.best||0),...rows.map(r=>r.points||0));
+  const [sk,sd]=state.sort[state.view];
+  let h="<thead><tr>"+cols.map(c=>`<th class="${c.num?"num":""}${c.k===sk?" sorted":""}">${c.nosort?`<span class="count">${c.l}</span>`:`<button data-sort="${c.k}">${c.l}${c.k===sk?(sd<0?" ↓":" ↑"):""}</button>`}</th>`).join("")+"</tr></thead><tbody>";
+  if(!rows.length)h+=`<tr><td colspan="${cols.length}" class="empty">${!state.results.length?"Inga resultat har publicerats ännu.":state.view==="swimmers"&&state.meets.filter(m=>m.active).length<filters().kmCount?"Färre KM än valt antal är valda. Välj färre KM i filtret.":"Inga resultat matchar filtren."}</td></tr>`;
+  rows.forEach((r,i)=>{
+    const cells=cols.map(c=>{
+      let v=c.k==="rank"?i+1:r[c.k];
+      if(c.k==="time")v=timeCell(r);
+      else if(c.pts)v=ptsCell(v,c.big);
+      else if(c.k==="name")v=`<span class="name">${esc(v)}</span>`;
+      else v=esc(v??"");
+      if((c.k==="avg"||c.k==="top")&&!r[c.k])v="–";
+      return `<td class="${c.k==="rank"?"rank":c.num?"num":""}">${v}</td>`;
+    }).join("");
+    if(state.view==="swimmers"){
+      const open=state.open.has(r.key);
+      h+=`<tr class="sw${open?" open":""}" tabindex="0" data-key="${esc(r.key)}" aria-expanded="${open}">${cells}</tr>`;
+      if(open)h+=detail(r,cols.length);
+    }else h+=`<tr>${cells}</tr>`;
+  });
+  $("tbl").innerHTML=h+"</tbody>";
+  const label={swimmers:"simmare",results:"lopp"}[state.view];
+  $("count").textContent=`${state.total>rows.length?rows.length+" av "+state.total:rows.length} ${label}`;
+}
+function timeCell(r){
+  if(r.status==="EXH")return fmtTime(r.time)+` <span class="status" style="color:var(--muted)">UT</span>`;
+  return r.status?`<span class="status">${esc(BAD_STATUS[r.status]||r.status)}</span>`:fmtTime(r.time);
+}
+function detail(s,span){
+  const rs=[...s.rows].sort((a,b)=>b.points-a.points||(a.date<b.date?1:-1));
+  return `<tr class="detail"><td colspan="${span}"><table><thead><tr><th>Gren</th><th>Tävling</th><th class="num">Tid</th><th class="num">Poäng</th></tr></thead><tbody>`+
+  rs.map(r=>`<tr class="${s.counted.has(r)?"used":""}"><td>${esc(eventLabel(r))}</td><td>${esc(meetName(r.meetId))}</td><td class="num">${timeCell(r)}</td><td class="num">${r.points||"–"}</td></tr>`).join("")+
+  `</tbody></table><div class="legend">Gul markering = lopp som räknas in i summan (${s.n} st).</div></td></tr>`;
+}
+function renderMeets(){
+  $("meets").innerHTML=state.meets.length?`<span class="lbl">Tävlingar</span>`+state.meets.map(m=>
+    `<span class="chip" role="button" tabindex="0" aria-pressed="${m.active}" data-meet="${m.id}" title="Klicka för att ta med eller utesluta">${esc(m.name)} <span class="meta">${esc([m.city,m.date,COURSE[m.course]].filter(Boolean).join(" · "))}</span></span>`).join(""):"";
+}
+function refreshOptions(){
+  const sel=$("event"),cur=sel.value,order=Object.keys(STROKES);
+  const evs=new Map();
+  for(const r of state.results)if(r.stroke)evs.set(r.distance+"|"+r.stroke,r);
+  const list=[...evs.entries()].sort(([,a],[,b])=>order.indexOf(a.stroke)-order.indexOf(b.stroke)||(+a.distance)-(+b.distance));
+  sel.innerHTML=`<option value="">Alla</option>`+list.map(([k,r])=>`<option value="${esc(k)}"${k===cur?" selected":""}>${esc(eventLabel(r))}</option>`).join("");
+  renderMeets();
+}
+
+/* ---------- export (PDF) ---------- */
+function cellText(r,c){
+  const v=r[c.k];
+  if(c.k==="time")return (r.status&&r.status!=="EXH")?(BAD_STATUS[r.status]||r.status):fmtTime(v)+(r.status==="EXH"?" UT":"");
+  if(c.k==="place")return String(v??"–");
+  if((c.k==="avg"||c.k==="top"||c.k==="best"||c.k==="points")&&!v)return "–";
+  return String(v??"");
+}
+function tableData(){
+  const cols=COLS[state.view].filter(c=>c.k!=="rank");
+  const ranked=state.view!=="results",off=ranked?1:0;
+  const rows=sortRows(viewRows());
+  return {
+    head:(ranked?["Plats"]:[]).concat(cols.map(c=>c.l)),
+    body:rows.map((r,i)=>(ranked?[String(i+1)]:[]).concat(cols.map(c=>cellText(r,c)))),
+    numCols:(ranked?[0]:[]).concat(cols.map((c,i)=>c.num?i+off:-1).filter(i=>i>=0))
+  };
+}
+function filterSummary(){
+  const f=filters(),parts=[];
+  const act=state.meets.filter(m=>m.active);
+  if(act.length!==state.meets.length)parts.push("Tävlingar: "+act.map(m=>m.name).join(", "));
+  if(f.q)parts.push("Namn: "+$("q").value.trim());
+  if(f.cls)parts.push("Åldersklass: "+$("cls").selectedOptions[0].text);
+  if(f.gender)parts.push("Kön: "+(f.gender==="F"?"Damer":"Herrar"));
+  if(f.event)parts.push("Gren: "+$("event").selectedOptions[0].text);
+  if(f.topX)parts.push("Topp "+f.topX);
+  if(state.view==="swimmers")parts.push("Antal KM: "+f.kmCount,"Lopp per KM: "+f.perKm);
+  else if(f.bestOnly)parts.push("Bara bästa resultat per simmare");
+  return parts.join("  ·  ");
+}
+function makePdf(){
+  const jsPDF=window.jspdf&&window.jspdf.jsPDF;
+  if(!jsPDF||!jsPDF.API.autoTable){$("errors").innerHTML='<div class="err">PDF-biblioteket kunde inte laddas. Kontrollera internetanslutningen och ladda om sidan.</div>';return;}
+  const t=tableData(),view={swimmers:"Simmare",results:"Alla lopp"}[state.view];
+  const doc=new jsPDF({orientation:"landscape",unit:"pt",format:"a4"});
+  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
+  doc.setFont("helvetica","bold");doc.setFontSize(16);doc.text("KM Sammanställning – "+view,40,40);
+  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setTextColor(90);
+  const lines=doc.splitTextToSize("Filter: "+filterSummary(),W-80);
+  doc.text(lines,40,56);
+  const startY=56+lines.length*11+6;
+  const colStyles={};t.numCols.forEach(i=>colStyles[i]={halign:"right"});
+  doc.autoTable({head:[t.head],body:t.body,startY,margin:{left:40,right:40,bottom:36},
+    styles:{font:"helvetica",fontSize:8,cellPadding:3},headStyles:{fillColor:[10,107,147]},
+    alternateRowStyles:{fillColor:[238,243,246]},columnStyles:colStyles,
+    didDrawPage:()=>{doc.setFontSize(8);doc.setTextColor(120);
+      doc.text("Sida "+doc.internal.getNumberOfPages()+" · "+new Date().toLocaleDateString("sv-SE"),W-40,H-18,{align:"right"});}});
+  doc.save("aquapoang-"+state.view+"-"+new Date().toISOString().slice(0,10)+".pdf");
+}
+$("pdf").disabled=!PDF_AKTIV;
+$("pdf").title=PDF_AKTIV?"":"Kommer snart";
+if(PDF_AKTIV)$("pdf").addEventListener("click",makePdf);
+
+/* ---------- events ---------- */
+// Filter med data-only visas bara på sin flik.
+function showViewFilters(){document.querySelectorAll("[data-only]").forEach(e=>{e.hidden=e.dataset.only!==state.view;});}
+showViewFilters();
+["q","cls","gender","event","topX","kmCount","perKm","bestOnly"].forEach(id=>$(id).addEventListener("input",render));
+document.querySelector(".tabs").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-view]"); if(!b)return;
+  state.view=b.dataset.view;
+  document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));
+  showViewFilters();
+  render();
+});
+$("tbl").addEventListener("click",e=>{
+  const sb=e.target.closest("button[data-sort]");
+  if(sb){const k=sb.dataset.sort,cur=state.sort[state.view];
+    const numeric=COLS[state.view].find(c=>c.k===k)?.num;
+    state.sort[state.view]=[k,cur[0]===k?-cur[1]:(numeric&&k!=="time"&&k!=="place"&&k!=="birth"?-1:1)];render();return;}
+  const tr=e.target.closest("tr.sw"); if(tr)toggleRow(tr.dataset.key);
+});
+$("tbl").addEventListener("keydown",e=>{const tr=e.target.closest("tr.sw");if(tr&&(e.key==="Enter"||e.key===" ")){e.preventDefault();toggleRow(tr.dataset.key);}});
+function toggleRow(k){state.open.has(k)?state.open.delete(k):state.open.add(k);render();}
+$("meets").addEventListener("click",e=>{
+  const chip=e.target.closest("[data-meet]"); if(chip){const m=state.meets.find(x=>x.id===+chip.dataset.meet);m.active=!m.active;renderMeets();render();}
+});
+$("meets").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches("[data-meet]")){e.preventDefault();e.target.click();}});
+
+render();
+loadAll();
+</script>
+</body>
+</html>

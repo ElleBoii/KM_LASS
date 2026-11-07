@@ -2,4 +2,5 @@
 # födelsedatum m.m. och ska aldrig publiceras.
 results/
 utdata/
+granskning/
 __pycache__/
