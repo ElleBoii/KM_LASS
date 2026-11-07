@@ -1,7 +1,5 @@
-# Råa Lenex-filer innehåller licensnummer, fullständiga födelsedatum m.m. och ska aldrig publiceras.
-results/*.lef
-results/*.lxf
-results/*.xml
-results/*.zip
+# Hela mappen results/ ignoreras: råa Lenex-filer innehåller licensnummer, fullständiga
+# födelsedatum m.m. och ska aldrig publiceras.
+results/
 utdata/
 __pycache__/

@@ -6,7 +6,7 @@ Statisk webbplats som visar resultat från klubbmästerskap (KM). Besökare kan 
 
 Råa Lenex-filer innehåller mer än sidan visar (licensnummer, fullständiga födelsedatum, mellantider, barn under 13 m.m.). **De publiceras aldrig.** I stället skapar `lenex_extract.py` en slimmad datafil i mappen `data/` med bara det som visas: namn, födelseår, kön, klubb, gren, tid, poäng och åldersklass. Endast `index.html` och `data/` publiceras. Sidan är markerad `noindex` så att sökmotorer inte ska indexera den.
 
-Råa filer i `results/` är undantagna via `.gitignore`. Checka aldrig in dem, eftersom git sparar historik och det som en gång laddats upp inte går att dra tillbaka på ett enkelt sätt.
+Hela mappen `results/` är undantagen via `.gitignore`, så ingenting du lägger där följer med till GitHub. Mappen skapas av skriptet om den saknas. Checka aldrig in dem, eftersom git sparar historik och det som en gång laddats upp inte går att dra tillbaka på ett enkelt sätt.
 
 ## Lägga till resultat (bara ägaren)
 
