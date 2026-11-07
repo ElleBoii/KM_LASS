@@ -1,0 +1,7 @@
+# Råa Lenex-filer innehåller licensnummer, fullständiga födelsedatum m.m. och ska aldrig publiceras.
+results/*.lef
+results/*.lxf
+results/*.xml
+results/*.zip
+utdata/
+__pycache__/
