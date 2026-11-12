@@ -38,8 +38,6 @@ h1 span{color:var(--accent)}
 .lanes{height:6px;border-radius:3px;background:repeating-linear-gradient(90deg,var(--lane) 0 14px,var(--accent) 14px 28px);opacity:.85}
 .btn{font:inherit;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:6px 12px;cursor:pointer}
 .btn:hover{border-color:var(--accent)}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn:disabled:hover{border-color:var(--line)}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .btn:focus-visible,select:focus-visible,input:focus-visible,th button:focus-visible,.chip:focus-visible,tr.sw:focus-visible{outline:2px solid var(--lane);outline-offset:2px}
 .notice{background:var(--lane-soft);border-radius:8px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
@@ -50,12 +48,11 @@ h1 span{color:var(--accent)}
 .chip[aria-pressed="false"]{opacity:.5;text-decoration:line-through}
 .chip .meta{color:var(--muted);font-size:.8rem}
 .chip .x{border:0;background:var(--row);color:var(--muted);border-radius:999px;width:22px;height:22px;cursor:pointer;font:inherit;line-height:1}
-.controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:end;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.controls{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px 14px;align-items:end;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
 .field{display:grid;gap:3px;min-width:0}
 .field label{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
-.field input,.field select{font:inherit;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px;padding:5px 8px;max-width:100%}
+.field input,.field select{font:inherit;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px;padding:5px 8px;width:100%;max-width:100%}
 .field input[type=number]{width:5.2em}
-#q{width:14em}
 .check{display:flex;gap:6px;align-items:center;padding-bottom:5px}
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
 .tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px}
@@ -63,7 +60,7 @@ h1 span{color:var(--accent)}
 .tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
 .count{color:var(--muted);font-size:.85rem}
 .tablebox{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
-table{border-collapse:collapse;width:100%;min-width:640px}
+table{border-collapse:collapse;width:100%}
 th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
 th{position:sticky;top:0;background:var(--surface);z-index:1}
 th button{font:inherit;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;font-weight:600;color:var(--muted);background:none;border:0;padding:0;cursor:pointer}
@@ -86,7 +83,25 @@ tr.open td{background:var(--row)}
 .empty{padding:36px 16px;text-align:center;color:var(--muted)}
 .copybox{width:100%;height:140px;font-family:var(--f-mono);font-size:.8rem;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px}
 .foot{color:var(--muted);font-size:.8rem;max-width:75ch}
-@media (max-width:560px){h1{font-size:2rem} #q{width:100%} .field.grow{flex:1 1 100%}}
+.colpick{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.colpick summary{cursor:pointer;font-weight:500}
+.colpick .opts{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px}
+.colpick label{display:flex;gap:6px;align-items:center;cursor:pointer}
+/* Mobil: smalare marginaler och filtren i två kolumner. Extra kolumner som användaren väljer får gå utanför skärmen (sidscroll i tabellen). */
+@media (max-width:640px){
+  .wrap{padding-inline:12px;padding-block:14px 32px;gap:12px}
+  h1{font-size:1.9rem}
+  .controls{padding:10px;gap:8px 10px;grid-template-columns:repeat(2,1fr)}
+  .bar{gap:8px}
+  .tabs button{padding:5px 12px}
+  table{font-size:13px}
+  th,td{padding:7px 6px;white-space:normal}
+  td.num,td.rank,th.num{white-space:nowrap}
+  td.rank{width:auto}
+  .pts i{display:none}
+  .detail td{padding:8px 8px 12px}
+  .chip .meta{display:none}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -106,7 +121,6 @@ tr.open td{background:var(--row)}
     <div class="field grow"><label for="q">Sök namn</label><input id="q" type="search" placeholder="t.ex. Lindqvist"></div>
     <div class="field"><label for="cls">Åldersklass</label><select id="cls"><option value="">Alla</option><option value="13-14">13-14 år</option><option value="15-16">15-16 år</option><option value="17-19">17-19 år</option><option value="20+">20 år och äldre</option></select></div>
     <div class="field"><label for="gender">Kön</label><select id="gender"><option value="">Alla</option><option value="F">Damer</option><option value="M">Herrar</option></select></div>
-    <div class="field"><label for="event">Gren</label><select id="event"><option value="">Alla</option></select></div>
     <div class="field"><label for="topX">Visa topp</label><select id="topX"><option value="">Alla</option><option>5</option><option>10</option><option>15</option><option>25</option><option>50</option></select></div>
     <div class="field" data-only="swimmers"><label for="kmCount">Antal KM</label><select id="kmCount" title="Antal KM som resultaten baseras på"><option selected>1</option><option>2</option><option>3</option><option>4</option></select></div>
     <div class="field" data-only="swimmers"><label for="perKm">Antal lopp per KM</label><select id="perKm" title="Antal lopp som måste finnas på varje KM"><option>1</option><option>2</option><option selected>3</option><option>4</option></select></div>
@@ -124,15 +138,14 @@ tr.open td{background:var(--row)}
     </div>
   </div>
 
+  <details class="colpick" id="colpick"><summary>Välj kolumner</summary><div class="opts" id="colopts"></div></details>
+
   <div class="tablebox"><table id="tbl"></table></div>
 
   <p class="foot">Poängen hämtas direkt från tävlingens resultatfil. Varje tävling är ett KM. På fliken Simmare räknas per KM de bästa loppen, så många som "Antal lopp per KM" anger, och simmaren måste ha minst så många lopp med poäng på det KM:et. Summan är de bästa KM-summorna, så många KM som "Antal KM" anger. Simmare som inte uppfyller kraven visas inte. Samma person i olika tävlingar matchas på namn, födelseår och kön. Diskade och strukna lopp ger inga poäng. Grenar med färre än fem startande (alla åldersklasser räknade ihop), klasser för 12 år och yngre samt utom tävlan tas inte med. Sidan visar namn, födelseår, klubb och resultat från KM. Vill du att dina uppgifter tas bort, kontakta sidans ansvarige.</p>
 </div>
 
 <script>
-// PDF-nedladdningen är under utveckling. Sätt till true för att slå på knappen igen.
-const PDF_AKTIV=true;
-
 const STROKES={FREE:"Frisim",BACK:"Ryggsim",BREAST:"Bröstsim",FLY:"Fjärilsim",MEDLEY:"Medley",IMRELAY:"Lagmedley"};
 const COURSE={SCM:"25 m",LCM:"50 m",SCY:"25 yd",SCM16:"16 m"};
 const BAD_STATUS={DSQ:"Disk",DNS:"Ej start",DNF:"Ej mål",WDR:"Struken",SICK:"Sjuk",EXH:"Uppvisning"};
@@ -187,14 +200,13 @@ function addMeet(d){
 
 /* ---------- filtering & aggregation ---------- */
 function filters(){
-  return {q:$("q").value.trim().toLowerCase(),cls:$("cls").value,gender:$("gender").value,event:$("event").value,
+  return {q:$("q").value.trim().toLowerCase(),cls:$("cls").value,gender:$("gender").value,
     perKm:+$("perKm").value||3,kmCount:+$("kmCount").value||1,topX:+$("topX").value||0,bestOnly:$("bestOnly").checked};
 }
 function filtered(f){
   const active=new Set(state.meets.filter(m=>m.active).map(m=>m.id));
   return state.results.filter(r=>active.has(r.meetId)
     &&(!f.cls||r.cls===f.cls)&&(!f.gender||r.gender===f.gender)
-    &&(!f.event||r.distance+"|"+r.stroke===f.event)
     &&(!f.q||(r.first+" "+r.last).toLowerCase().includes(f.q)));
 }
 function swimmers(rows,f){
@@ -221,7 +233,7 @@ function swimmers(rows,f){
     s.starts=s.rows.length;
     s.kms=kms.length;
     s.best=valid[0]?.points||0;
-    s.bestEvent=valid[0]?eventLabel(valid[0])+" ("+(COURSE[valid[0].course]||valid[0].course)+")":"";
+    s.bestEvent=valid[0]?eventLabel(valid[0]):"";
     s.top=used.reduce((a,k)=>a+k.sum,0);
     s.n=s.counted.size;
     s.avg=Math.round(s.top/s.n);
@@ -235,16 +247,28 @@ const meetName=id=>state.meets.find(m=>m.id===id)?.name||"";
 let maxPts=1;
 const ptsCell=(v,big)=>v?`<span class="pts${big?" big":""}"><i style="width:${Math.round(40*v/maxPts)}px"></i>${v}</span>`:"–";
 
+// opt:true = valfri kolumn som användaren kan kryssa i/ur. Övriga visas alltid.
 const COLS={
   swimmers:[
     {k:"rank",l:"#",nosort:true},
-    {k:"name",l:"Namn"},{k:"birth",l:"Född",num:true},
-    {k:"kms",l:"KM",num:true},{k:"starts",l:"Starter",num:true},{k:"best",l:"Högsta",num:true,pts:true},
-    {k:"bestEvent",l:"Bästa gren"},{k:"avg",l:"Snitt per lopp",num:true},{k:"top",l:"Summa poäng",num:true,pts:true,big:true}],
+    {k:"name",l:"Namn"},{k:"birth",l:"Född",num:true,opt:true},
+    {k:"kms",l:"KM",num:true,opt:true},{k:"starts",l:"Starter",num:true,opt:true},
+    {k:"best",l:"Högsta",num:true,pts:true,opt:true},{k:"bestEvent",l:"Bästa gren",opt:true},
+    {k:"avg",l:"Snitt",num:true,opt:true},{k:"top",l:"Summa poäng",num:true,pts:true,big:true}],
   results:[
-    {k:"meet",l:"Tävling"},{k:"name",l:"Namn"},{k:"birth",l:"Född",num:true},
-    {k:"event",l:"Gren"},{k:"time",l:"Tid",num:true},{k:"points",l:"Poäng",num:true,pts:true,big:true}]
+    {k:"rank",l:"#",nosort:true},
+    {k:"name",l:"Namn"},{k:"birth",l:"Född",num:true,opt:true},
+    {k:"event",l:"Gren"},{k:"time",l:"Tid",num:true,opt:true},{k:"meet",l:"KM",opt:true},
+    {k:"points",l:"Poäng",num:true,pts:true,big:true}]
 };
+// Alla valfria kolumner är från början avstängda, så tabellen är slimmad. Användaren kryssar i de hen vill se.
+state.cols={swimmers:{},results:{}};
+for(const v of Object.keys(COLS))for(const c of COLS[v])if(c.opt)state.cols[v][c.k]=false;
+const visibleCols=v=>COLS[v].filter(c=>!c.opt||state.cols[v][c.k]);
+function renderColPick(){
+  $("colopts").innerHTML=COLS[state.view].filter(c=>c.opt).map(c=>
+    `<label><input type="checkbox" data-col="${c.k}"${state.cols[state.view][c.k]?" checked":""}> ${esc(c.l)}</label>`).join("");
+}
 function viewRows(){
   const f=filters(),rows=filtered(f),sw=swimmers(rows,f);
   let list=rows;
@@ -255,7 +279,11 @@ function viewRows(){
   }
   let out=state.view==="swimmers"?sw:list.map(r=>({...r,meet:meetName(r.meetId),name:`${r.first} ${r.last}`,event:eventLabel(r),courseL:COURSE[r.course]||r.course}));
   state.total=out.length;
-  if(f.topX){const k=state.view==="swimmers"?"top":"points";out=out.sort((a,b)=>b[k]-a[k]).slice(0,f.topX);}
+  const k=state.view==="swimmers"?"top":"points";
+  if(f.topX)out=out.sort((a,b)=>b[k]-a[k]).slice(0,f.topX);
+  // Rangordningsnummer efter poäng (lika poäng ger samma plats), oavsett hur tabellen sorteras.
+  let prev=null,place=0;
+  [...out].sort((a,b)=>b[k]-a[k]).forEach((r,i)=>{if(r[k]!==prev){place=i+1;prev=r[k];}r.rank=place;});
   return out;
 }
 function sortRows(rows){
@@ -269,7 +297,7 @@ function sortRows(rows){
   });
 }
 function render(){
-  const cols=COLS[state.view];
+  const cols=visibleCols(state.view);
   const rows=sortRows(viewRows());
   const ptsKey=cols.find(c=>c.big)?.k; maxPts=Math.max(1,...rows.map(r=>r[ptsKey]||0),...rows.map(r=>r.best||0),...rows.map(r=>r.points||0));
   const [sk,sd]=state.sort[state.view];
@@ -277,7 +305,7 @@ function render(){
   if(!rows.length)h+=`<tr><td colspan="${cols.length}" class="empty">${!state.results.length?"Inga resultat har publicerats ännu.":state.view==="swimmers"&&state.meets.filter(m=>m.active).length<filters().kmCount?"Färre KM än valt antal är valda. Välj färre KM i filtret.":"Inga resultat matchar filtren."}</td></tr>`;
   rows.forEach((r,i)=>{
     const cells=cols.map(c=>{
-      let v=c.k==="rank"?i+1:r[c.k];
+      let v=r[c.k];
       if(c.k==="time")v=timeCell(r);
       else if(c.pts)v=ptsCell(v,c.big);
       else if(c.k==="name")v=`<span class="name">${esc(v)}</span>`;
@@ -310,11 +338,6 @@ function renderMeets(){
     `<span class="chip" role="button" tabindex="0" aria-pressed="${m.active}" data-meet="${m.id}" title="Klicka för att ta med eller utesluta">${esc(m.name)} <span class="meta">${esc([m.city,m.date,COURSE[m.course]].filter(Boolean).join(" · "))}</span></span>`).join(""):"";
 }
 function refreshOptions(){
-  const sel=$("event"),cur=sel.value,order=Object.keys(STROKES);
-  const evs=new Map();
-  for(const r of state.results)if(r.stroke)evs.set(r.distance+"|"+r.stroke,r);
-  const list=[...evs.entries()].sort(([,a],[,b])=>order.indexOf(a.stroke)-order.indexOf(b.stroke)||(+a.distance)-(+b.distance));
-  sel.innerHTML=`<option value="">Alla</option>`+list.map(([k,r])=>`<option value="${esc(k)}"${k===cur?" selected":""}>${esc(eventLabel(r))}</option>`).join("");
   renderMeets();
 }
 
@@ -322,19 +345,14 @@ function refreshOptions(){
 function cellText(r,c){
   const v=r[c.k];
   if(c.k==="time")return (r.status&&r.status!=="EXH")?(BAD_STATUS[r.status]||r.status):fmtTime(v)+(r.status==="EXH"?" UT":"");
-  if(c.k==="place")return String(v??"–");
   if((c.k==="avg"||c.k==="top"||c.k==="best"||c.k==="points")&&!v)return "–";
   return String(v??"");
 }
+// Tabellen som visas just nu: de valda kolumnerna i vald sortering.
 function tableData(){
-  const cols=COLS[state.view].filter(c=>c.k!=="rank");
-  const ranked=state.view!=="results",off=ranked?1:0;
+  const cols=visibleCols(state.view);
   const rows=sortRows(viewRows());
-  return {
-    head:(ranked?["Plats"]:[]).concat(cols.map(c=>c.l)),
-    body:rows.map((r,i)=>(ranked?[String(i+1)]:[]).concat(cols.map(c=>cellText(r,c)))),
-    numCols:(ranked?[0]:[]).concat(cols.map((c,i)=>c.num?i+off:-1).filter(i=>i>=0))
-  };
+  return {cols,head:cols.map(c=>c.l),body:rows.map(r=>cols.map(c=>cellText(r,c)))};
 }
 function filterSummary(){
   const f=filters(),parts=[];
@@ -343,45 +361,79 @@ function filterSummary(){
   if(f.q)parts.push("Namn: "+$("q").value.trim());
   if(f.cls)parts.push("Åldersklass: "+$("cls").selectedOptions[0].text);
   if(f.gender)parts.push("Kön: "+(f.gender==="F"?"Damer":"Herrar"));
-  if(f.event)parts.push("Gren: "+$("event").selectedOptions[0].text);
   if(f.topX)parts.push("Topp "+f.topX);
   if(state.view==="swimmers")parts.push("Antal KM: "+f.kmCount,"Lopp per KM: "+f.perKm);
   else if(f.bestOnly)parts.push("Bara bästa resultat per simmare");
-  return parts.join("  ·  ");
+  return parts.join("  ·  ")||"Inga filter";
 }
 function makePdf(){
   const jsPDF=window.jspdf&&window.jspdf.jsPDF;
   if(!jsPDF||!jsPDF.API.autoTable){$("errors").innerHTML='<div class="err">PDF-biblioteket kunde inte laddas. Kontrollera internetanslutningen och ladda om sidan.</div>';return;}
   const t=tableData(),view={swimmers:"Simmare",results:"Alla lopp"}[state.view];
-  const doc=new jsPDF({orientation:"landscape",unit:"pt",format:"a4"});
-  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
-  doc.setFont("helvetica","bold");doc.setFontSize(16);doc.text("KM Sammanställning – "+view,40,40);
-  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setTextColor(90);
-  const lines=doc.splitTextToSize("Filter: "+filterSummary(),W-80);
-  doc.text(lines,40,56);
-  const startY=56+lines.length*11+6;
-  const colStyles={};t.numCols.forEach(i=>colStyles[i]={halign:"right"});
-  doc.autoTable({head:[t.head],body:t.body,startY,margin:{left:40,right:40,bottom:36},
-    styles:{font:"helvetica",fontSize:8,cellPadding:3},headStyles:{fillColor:[10,107,147]},
-    alternateRowStyles:{fillColor:[238,243,246]},columnStyles:colStyles,
-    didDrawPage:()=>{doc.setFontSize(8);doc.setTextColor(120);
-      doc.text("Sida "+doc.internal.getNumberOfPages()+" · "+new Date().toLocaleDateString("sv-SE"),W-40,H-18,{align:"right"});}});
-  doc.save("aquapoang-"+state.view+"-"+new Date().toISOString().slice(0,10)+".pdf");
+  const portrait=t.cols.length<=6;
+  const doc=new jsPDF({orientation:portrait?"portrait":"landscape",unit:"pt",format:"a4"});
+  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=36;
+  const today=new Date().toLocaleDateString("sv-SE");
+  // Sidhuvud
+  doc.setFillColor(10,107,147);doc.rect(0,0,W,66,"F");
+  doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(21);doc.text("KM Sammanställning",M,31);
+  doc.setFont("helvetica","normal");doc.setFontSize(10);
+  doc.text(view+"  ·  "+(state.meets.filter(m=>m.active).map(m=>m.name).join(", ")||"–"),M,50);
+  doc.text($("count").textContent,W-M,50,{align:"right"});
+  // Filterruta
+  doc.setFontSize(9);
+  const lines=doc.splitTextToSize(filterSummary(),W-2*M-16);
+  const boxH=lines.length*12+26;
+  doc.setFillColor(238,243,246);doc.roundedRect(M,82,W-2*M,boxH,4,4,"F");
+  doc.setTextColor(91,111,125);doc.setFont("helvetica","bold");doc.setFontSize(7.5);doc.text("FILTER",M+8,95);
+  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setTextColor(15,34,48);doc.text(lines,M+8,108);
+  // Tabell
+  const colStyles={};
+  t.cols.forEach((c,i)=>{
+    if(c.k==="rank")colStyles[i]={halign:"center",cellWidth:30};
+    else if(c.num)colStyles[i]={halign:"right"};
+  });
+  doc.autoTable({head:[t.head],body:t.body,startY:82+boxH+14,margin:{left:M,right:M,top:M,bottom:44},
+    theme:"striped",
+    styles:{font:"helvetica",fontSize:portrait?10:9,cellPadding:{top:5,bottom:5,left:6,right:6},textColor:[15,34,48],overflow:"linebreak"},
+    headStyles:{fillColor:[10,107,147],textColor:[255,255,255],fontStyle:"bold",fontSize:8.5},
+    alternateRowStyles:{fillColor:[240,245,248]},
+    columnStyles:colStyles,
+    didParseCell:d=>{
+      const c=t.cols[d.column.index];
+      // Rubrikerna ska stå över sina kolumner: siffror till höger, rangordning i mitten.
+      if(d.section==="head"){d.cell.styles.halign=c.k==="rank"?"center":c.num?"right":"left";return;}
+      if(d.section!=="body")return;
+      if(c.k==="name"||c.big)d.cell.styles.fontStyle="bold";
+      if(c.k==="rank")d.cell.styles.textColor=[91,111,125];
+    },
+    didDrawPage:d=>{
+      doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(130,130,130);
+      doc.text("Sida "+d.pageNumber+" av {total}",M,H-20);
+      doc.text("Skapad "+today,W-M,H-20,{align:"right"});
+    }});
+  doc.putTotalPages("{total}");
+  doc.save("km-sammanstallning-"+state.view+"-"+new Date().toISOString().slice(0,10)+".pdf");
 }
-$("pdf").disabled=!PDF_AKTIV;
-$("pdf").title=PDF_AKTIV?"":"Kommer snart";
-if(PDF_AKTIV)$("pdf").addEventListener("click",makePdf);
+$("pdf").addEventListener("click",makePdf);
 
 /* ---------- events ---------- */
 // Filter med data-only visas bara på sin flik.
 function showViewFilters(){document.querySelectorAll("[data-only]").forEach(e=>{e.hidden=e.dataset.only!==state.view;});}
 showViewFilters();
-["q","cls","gender","event","topX","kmCount","perKm","bestOnly"].forEach(id=>$(id).addEventListener("input",render));
+["q","cls","gender","topX","kmCount","perKm","bestOnly"].forEach(id=>$(id).addEventListener("input",render));
 document.querySelector(".tabs").addEventListener("click",e=>{
   const b=e.target.closest("button[data-view]"); if(!b)return;
   state.view=b.dataset.view;
   document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));
   showViewFilters();
+  renderColPick();
+  render();
+});
+$("colopts").addEventListener("change",e=>{
+  const cb=e.target.closest("[data-col]");
+  if(!cb)return;
+  state.cols[state.view][cb.dataset.col]=cb.checked;
   render();
 });
 $("tbl").addEventListener("click",e=>{
@@ -398,6 +450,7 @@ $("meets").addEventListener("click",e=>{
 });
 $("meets").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches("[data-meet]")){e.preventDefault();e.target.click();}});
 
+renderColPick();
 render();
 loadAll();
 </script>
