@@ -45,7 +45,7 @@ TA_BORT_STATUS = {"EXH"}      # utom tävlan tas alltid bort
 INTE_STARTANDE = {"DNS", "WDR"}
 MED_STAFETTER = False
 VISA_TOPP_LOPP = VISA_TOPP    # samma topp-gräns för resultatlistan
-TAVLINGSNAMN_RENSA = r"\s*&\s*Medleycupen.*$"   # "KM 4 & Medleycupen 4" blir "KM 4"
+TAVLINGSNAMN_RENSA = r"\s*&\s*Medleycup.*$"   # "KM 4 & Medleycupen 4" och "KM 2 & Medleycup 2" blir "KM 4" och "KM 2"
 
 # ======================================================================
 # Här börjar själva koden. Behöver normalt inte ändras.

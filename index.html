@@ -78,8 +78,6 @@ tr.open td{background:var(--row)}
 .detail td{background:var(--bg);padding:10px 14px 14px 46px;white-space:normal}
 .detail table{min-width:0;width:auto;background:transparent}
 .detail th,.detail td{border-bottom:1px dashed var(--line);padding:4px 12px 4px 0;background:transparent}
-.detail tr.used td:first-child::before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--lane);margin-right:6px}
-.legend{color:var(--muted);font-size:.8rem;margin-top:6px}
 .empty{padding:36px 16px;text-align:center;color:var(--muted)}
 .copybox{width:100%;height:140px;font-family:var(--f-mono);font-size:.8rem;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px}
 .foot{color:var(--muted);font-size:.8rem;max-width:75ch}
@@ -165,6 +163,9 @@ function fmtTime(h){
   return (hr?hr+":"+pad(m)+":":(m?m+":":""))+(m||hr?pad(s):s)+"."+pad(cs);
 }
 const eventLabel=r=>`${r.distance} m ${STROKES[r.stroke]||r.stroke||""}`.trim();
+// Kort gren för smala skärmar på fliken Enskilda lopp: "200 m fr", "50 m ry" osv.
+const STROKE_ABBR={FREE:"fr",BACK:"ry",BREAST:"br",FLY:"fj",MEDLEY:"me"};
+const eventShort=r=>`${r.distance} m ${STROKE_ABBR[r.stroke]||STROKES[r.stroke]||r.stroke||""}`.trim();
 
 // Läser data/index.json (lista över KM-filer) och sedan varje KM-fil.
 // Filerna skapas av lenex_extract.py och innehåller bara det som visas på sidan.
@@ -307,7 +308,7 @@ function render(){
   if(!rows.length)h+=`<tr><td colspan="${cols.length}" class="empty">${!state.results.length?"Inga resultat har publicerats ännu.":state.view==="swimmers"&&state.meets.filter(m=>m.active).length<filters().kmCount?"Färre KM än valt antal är valda. Välj färre KM i filtret.":"Inga resultat matchar filtren."}</td></tr>`;
   rows.forEach((r,i)=>{
     const cells=cols.map(c=>{
-      let v=r[c.k];
+      let v=c.k==="event"?eventShort(r):r[c.k];
       if(c.k==="time")v=timeCell(r);
       else if(c.pts)v=ptsCell(v,c.big);
       else if(c.k==="name")v=`<span class="name">${esc(v)}</span>`;
@@ -329,11 +330,12 @@ function timeCell(r){
   if(r.status==="EXH")return fmtTime(r.time)+` <span class="status" style="color:var(--muted)">UT</span>`;
   return r.status?`<span class="status">${esc(BAD_STATUS[r.status]||r.status)}</span>`:fmtTime(r.time);
 }
+// Utfälld simmare: bara de lopp som räknas in i summan, ordnade per KM.
 function detail(s,span){
-  const rs=[...s.rows].sort((a,b)=>b.points-a.points||(a.date<b.date?1:-1));
+  const rs=s.rows.filter(r=>s.counted.has(r)).sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:0)||b.points-a.points);
   return `<tr class="detail"><td colspan="${span}"><table><thead><tr><th>Gren</th><th>Tävling</th><th class="num">Tid</th><th class="num">Poäng</th></tr></thead><tbody>`+
-  rs.map(r=>`<tr class="${s.counted.has(r)?"used":""}"><td>${esc(eventLabel(r))}</td><td>${esc(meetName(r.meetId))}</td><td class="num">${timeCell(r)}</td><td class="num">${r.points||"–"}</td></tr>`).join("")+
-  `</tbody></table><div class="legend">Gul markering = lopp som räknas in i summan (${s.n} st).</div></td></tr>`;
+  rs.map(r=>`<tr><td>${esc(eventLabel(r))}</td><td>${esc(meetName(r.meetId))}</td><td class="num">${timeCell(r)}</td><td class="num">${r.points||"–"}</td></tr>`).join("")+
+  `</tbody></table></td></tr>`;
 }
 function renderMeets(){
   $("meets").innerHTML=state.meets.length?`<span class="lbl">Tävlingar</span>`+state.meets.map(m=>
