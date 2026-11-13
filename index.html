@@ -120,9 +120,9 @@ tr.open td{background:var(--row)}
     <div class="field"><label for="cls">Åldersklass</label><select id="cls"><option value="">Alla</option><option value="13-14">13-14 år</option><option value="15-16">15-16 år</option><option value="17-19">17-19 år</option><option value="20+">20 år och äldre</option></select></div>
     <div class="field"><label for="gender">Kön</label><select id="gender"><option value="">Alla</option><option value="F">Damer</option><option value="M">Herrar</option></select></div>
     <div class="field"><label for="topX">Visa topp</label><select id="topX"><option value="">Alla</option><option>5</option><option>10</option><option>15</option><option>25</option><option>50</option></select></div>
-    <div class="field" data-only="swimmers"><label for="kmCount">Antal KM</label><select id="kmCount" title="Antal KM som resultaten baseras på"><option selected>1</option><option>2</option><option>3</option><option>4</option></select></div>
-    <div class="field" data-only="swimmers"><label for="perKm">Antal lopp per KM</label><select id="perKm" title="Antal lopp som måste finnas på varje KM"><option selected>1</option><option>2</option><option>3</option><option>4</option></select></div>
-    <div class="field" data-only="swimmers"><label for="totalMin">Totalt antal lopp</label><select id="totalMin" title="Minst så många genomförda lopp totalt, på alla KM"><option selected>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option><option>13</option><option>14</option><option>15</option><option>16</option></select></div>
+    <div class="field" data-only="swimmers"><label for="kmCount">Antal KM</label><select id="kmCount" title="Minsta antal KM som simmaren ska ha deltagit i"><option selected>1</option><option>2</option><option>3</option><option>4</option></select></div>
+    <div class="field" data-only="swimmers"><label for="perKm">Antal lopp per KM</label><select id="perKm" title="Minsta antal lopp på vart och ett av KM:en (0 = inget krav)"><option>0</option><option selected>1</option><option>2</option><option>3</option><option>4</option></select></div>
+    <div class="field" data-only="swimmers"><label for="total">Totalt antal lopp</label><select id="total" title="Antal lopp som sammanställningen baseras på (minst Antal KM × Antal lopp per KM)"></select></div>
     <label class="check" data-only="results"><input id="bestOnly" type="checkbox" checked> Visa endast bästa resultat</label>
   </div>
 
@@ -141,7 +141,7 @@ tr.open td{background:var(--row)}
 
   <div class="tablebox"><table id="tbl"></table></div>
 
-  <p class="foot">Poängen hämtas direkt från tävlingens resultatfil. Varje tävling är ett KM. På fliken Sammanställning räknas per KM de bästa loppen, så många som "Antal lopp per KM" anger, och simmaren måste ha minst så många lopp med poäng på det KM:et. Summan är de bästa KM-summorna, så många KM som "Antal KM" anger. Med "Totalt antal lopp" kan man dessutom kräva att simmaren genomfört minst så många lopp totalt på alla KM. Simmare som inte uppfyller kraven visas inte. Samma person i olika tävlingar matchas på namn, födelseår och kön. Diskade och strukna lopp ger inga poäng. Grenar med färre än fem startande (alla åldersklasser räknade ihop), klasser för 12 år och yngre samt utom tävlan tas inte med. Sidan visar namn, födelseår, klubb och resultat från KM. Vill du att dina uppgifter tas bort, kontakta sidans ansvarige.</p>
+  <p class="foot">Poängen hämtas direkt från tävlingens resultatfil. Varje tävling är ett KM. På fliken Sammanställning baseras summan på simmarens bästa lopp. "Antal KM" är det minsta antal KM simmaren ska ha deltagit i, "Antal lopp per KM" det minsta antal lopp på vart och ett av dem (0 = inget krav) och "Totalt antal lopp" hur många lopp summan baseras på, minst Antal KM × Antal lopp per KM. Av simmarens lopp väljs de som ger högst summa och uppfyller kraven. Simmare som inte uppfyller kraven visas inte. Samma person i olika tävlingar matchas på namn, födelseår och kön. Diskade och strukna lopp ger inga poäng. Grenar med färre än fem startande (alla åldersklasser räknade ihop), klasser för 12 år och yngre samt utom tävlan tas inte med. Sidan visar namn, födelseår, klubb och resultat från KM. Vill du att dina uppgifter tas bort, kontakta sidans ansvarige.</p>
 </div>
 
 <script>
@@ -203,13 +203,19 @@ function addMeet(d){
 /* ---------- filtering & aggregation ---------- */
 function filters(){
   return {q:$("q").value.trim().toLowerCase(),cls:$("cls").value,gender:$("gender").value,
-    perKm:+$("perKm").value||1,totalMin:+$("totalMin").value||1,kmCount:+$("kmCount").value||1,topX:+$("topX").value||0,bestOnly:$("bestOnly").checked};
+    perKm:Number($("perKm").value),total:+$("total").value||1,kmCount:+$("kmCount").value||1,topX:+$("topX").value||0,bestOnly:$("bestOnly").checked};
 }
 function filtered(f){
   const active=new Set(state.meets.filter(m=>m.active).map(m=>m.id));
   return state.results.filter(r=>active.has(r.meetId)
     &&(!f.cls||r.cls===f.cls)&&(!f.gender||r.gender===f.gender)
     &&(!f.q||(r.first+" "+r.last).toLowerCase().includes(f.q)));
+}
+// Alla sätt att välja k element ur en kort lista.
+function combinations(a,k,start=0,cur=[],out=[]){
+  if(cur.length===k){out.push(cur.slice());return out;}
+  for(let i=start;i<a.length;i++){cur.push(a[i]);combinations(a,k,i+1,cur,out);cur.pop();}
+  return out;
 }
 function swimmers(rows,f){
   const map=new Map();
@@ -219,27 +225,34 @@ function swimmers(rows,f){
     if(r.date>=s.clubDate){s.club=r.club;s.clubDate=r.date;}
     s.rows.push(r);
   }
-  // Per KM räknas simmarens perKm bästa lopp, och bara om hen har minst så många lopp med poäng där.
-  // Totalen är summan av de kmCount bästa KM-summorna. Simmare med färre godkända KM tas inte med.
+  // Krav: simmaren ska ha deltagit i minst kmCount KM med minst perKm lopp (med poäng) på vart och ett av dem,
+  // och ha minst total lopp totalt. Summan baseras på total lopp: de perKm bästa från kmCount KM, plus de
+  // bästa övriga loppen. Av de KM som uppfyller kravet väljs de som ger högst summa.
   const out=[];
   for(const s of map.values()){
     const valid=s.rows.filter(r=>r.points>0).sort((a,b)=>b.points-a.points);
-    if(valid.length<f.totalMin)continue;   // färre genomförda lopp totalt än valt
+    if(valid.length<f.total)continue;
     const perMeet=new Map();
     for(const r of valid)(perMeet.get(r.meetId)??perMeet.set(r.meetId,[]).get(r.meetId)).push(r);
-    const kms=[...perMeet.values()].filter(rs=>rs.length>=f.perKm)
-      .map(rs=>{const used=rs.slice(0,f.perKm);return {used,sum:used.reduce((a,r)=>a+r.points,0)};})
-      .sort((a,b)=>b.sum-a.sum);
-    if(kms.length<f.kmCount)continue;
-    const used=kms.slice(0,f.kmCount);
-    s.counted=new Set(used.flatMap(k=>k.used));
+    const ok=[...perMeet.values()].filter(rs=>rs.length>=Math.max(f.perKm,1));
+    if(ok.length<f.kmCount)continue;
+    let best=null;
+    for(const combo of combinations(ok,f.kmCount)){
+      const must=combo.flatMap(rs=>rs.slice(0,f.perKm));
+      const taken=new Set(must);
+      const fill=valid.filter(r=>!taken.has(r)).slice(0,Math.max(0,f.total-must.length));
+      const picked=[...must,...fill];
+      const sum=picked.reduce((a,r)=>a+r.points,0);
+      if(!best||sum>best.sum)best={picked,sum};
+    }
+    s.counted=new Set(best.picked);
     s.starts=s.rows.length;
-    s.kms=kms.length;
-    s.best=valid[0]?.points||0;
-    s.bestEvent=valid[0]?eventLabel(valid[0]):"";
-    s.top=used.reduce((a,k)=>a+k.sum,0);
-    s.n=s.counted.size;
-    s.avg=Math.round(s.top/s.n);
+    s.kms=new Set(best.picked.map(r=>r.meetId)).size;
+    s.best=valid[0].points;
+    s.bestEvent=eventLabel(valid[0]);
+    s.top=best.sum;
+    s.n=best.picked.length;
+    s.avg=Math.round(best.sum/s.n);
     out.push(s);
   }
   return out;
@@ -366,7 +379,7 @@ function filterSummary(){
   if(f.cls)parts.push("Åldersklass: "+$("cls").selectedOptions[0].text);
   if(f.gender)parts.push("Kön: "+(f.gender==="F"?"Damer":"Herrar"));
   if(f.topX)parts.push("Topp "+f.topX);
-  if(state.view==="swimmers")parts.push("Antal KM: "+f.kmCount,"Lopp per KM: "+f.perKm,"Totalt antal lopp: minst "+f.totalMin);
+  if(state.view==="swimmers")parts.push("Antal KM: "+f.kmCount,"Lopp per KM: "+f.perKm,"Totalt antal lopp: "+f.total);
   else if(f.bestOnly)parts.push("Bara bästa resultat per simmare");
   return parts.join("  ·  ")||"Inga filter";
 }
@@ -425,7 +438,23 @@ $("pdf").addEventListener("click",makePdf);
 // Filter med data-only visas bara på sin flik.
 function showViewFilters(){document.querySelectorAll("[data-only]").forEach(e=>{e.hidden=e.dataset.only!==state.view;});}
 showViewFilters();
-["q","cls","gender","topX","kmCount","perKm","totalMin","bestOnly"].forEach(id=>$(id).addEventListener("input",render));
+// Totalt antal lopp kan inte vara lägre än Antal KM x Antal lopp per KM (lägst 1) och högst 4 x 4.
+// Det följer minimivärdet tills användaren väljer ett högre.
+const MAX_TOTAL=16;
+state.totalFollowsMin=true;
+const totalMin=()=>Math.max(1,(+$("kmCount").value||1)*Number($("perKm").value));
+function syncTotal(){
+  const sel=$("total"),min=totalMin();
+  const val=state.totalFollowsMin?min:Math.max(+sel.value||min,min);
+  if(val===min)state.totalFollowsMin=true;   // har totalen nått minimivärdet följer den det igen
+  let h="";
+  for(let n=min;n<=MAX_TOTAL;n++)h+=`<option${n===val?" selected":""}>${n}</option>`;
+  sel.innerHTML=h;
+  sel.value=String(val);
+}
+["q","cls","gender","topX","bestOnly"].forEach(id=>$(id).addEventListener("input",render));
+["kmCount","perKm"].forEach(id=>$(id).addEventListener("input",()=>{syncTotal();render();}));
+$("total").addEventListener("input",()=>{state.totalFollowsMin=(+$("total").value===totalMin());render();});
 document.querySelector(".tabs").addEventListener("click",e=>{
   const b=e.target.closest("button[data-view]"); if(!b)return;
   state.view=b.dataset.view;
@@ -454,6 +483,7 @@ $("meets").addEventListener("click",e=>{
 });
 $("meets").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches("[data-meet]")){e.preventDefault();e.target.click();}});
 
+syncTotal();
 renderColPick();
 render();
 loadAll();
