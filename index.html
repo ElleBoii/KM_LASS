@@ -123,14 +123,15 @@ tr.open td{background:var(--row)}
     <div class="field"><label for="gender">Kön</label><select id="gender"><option value="">Alla</option><option value="F">Damer</option><option value="M">Herrar</option></select></div>
     <div class="field"><label for="topX">Visa topp</label><select id="topX"><option value="">Alla</option><option>5</option><option>10</option><option>15</option><option>25</option><option>50</option></select></div>
     <div class="field" data-only="swimmers"><label for="kmCount">Antal KM</label><select id="kmCount" title="Antal KM som resultaten baseras på"><option selected>1</option><option>2</option><option>3</option><option>4</option></select></div>
-    <div class="field" data-only="swimmers"><label for="perKm">Antal lopp per KM</label><select id="perKm" title="Antal lopp som måste finnas på varje KM"><option>1</option><option>2</option><option selected>3</option><option>4</option></select></div>
+    <div class="field" data-only="swimmers"><label for="perKm">Antal lopp per KM</label><select id="perKm" title="Antal lopp som måste finnas på varje KM"><option selected>1</option><option>2</option><option>3</option><option>4</option></select></div>
+    <div class="field" data-only="swimmers"><label for="totalMin">Totalt antal lopp</label><select id="totalMin" title="Minst så många genomförda lopp totalt, på alla KM"><option selected>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option><option>13</option><option>14</option><option>15</option><option>16</option></select></div>
     <label class="check" data-only="results"><input id="bestOnly" type="checkbox" checked> Visa endast bästa resultat</label>
   </div>
 
   <div class="bar">
     <div class="tabs" role="tablist">
-      <button role="tab" data-view="swimmers" aria-selected="true">Simmare</button>
-      <button role="tab" data-view="results" aria-selected="false">Alla lopp</button>
+      <button role="tab" data-view="swimmers" aria-selected="true">Sammanställning</button>
+      <button role="tab" data-view="results" aria-selected="false">Enskilda lopp</button>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <span class="count" id="count"></span>
@@ -142,7 +143,7 @@ tr.open td{background:var(--row)}
 
   <div class="tablebox"><table id="tbl"></table></div>
 
-  <p class="foot">Poängen hämtas direkt från tävlingens resultatfil. Varje tävling är ett KM. På fliken Simmare räknas per KM de bästa loppen, så många som "Antal lopp per KM" anger, och simmaren måste ha minst så många lopp med poäng på det KM:et. Summan är de bästa KM-summorna, så många KM som "Antal KM" anger. Simmare som inte uppfyller kraven visas inte. Samma person i olika tävlingar matchas på namn, födelseår och kön. Diskade och strukna lopp ger inga poäng. Grenar med färre än fem startande (alla åldersklasser räknade ihop), klasser för 12 år och yngre samt utom tävlan tas inte med. Sidan visar namn, födelseår, klubb och resultat från KM. Vill du att dina uppgifter tas bort, kontakta sidans ansvarige.</p>
+  <p class="foot">Poängen hämtas direkt från tävlingens resultatfil. Varje tävling är ett KM. På fliken Sammanställning räknas per KM de bästa loppen, så många som "Antal lopp per KM" anger, och simmaren måste ha minst så många lopp med poäng på det KM:et. Summan är de bästa KM-summorna, så många KM som "Antal KM" anger. Med "Totalt antal lopp" kan man dessutom kräva att simmaren genomfört minst så många lopp totalt på alla KM. Simmare som inte uppfyller kraven visas inte. Samma person i olika tävlingar matchas på namn, födelseår och kön. Diskade och strukna lopp ger inga poäng. Grenar med färre än fem startande (alla åldersklasser räknade ihop), klasser för 12 år och yngre samt utom tävlan tas inte med. Sidan visar namn, födelseår, klubb och resultat från KM. Vill du att dina uppgifter tas bort, kontakta sidans ansvarige.</p>
 </div>
 
 <script>
@@ -201,7 +202,7 @@ function addMeet(d){
 /* ---------- filtering & aggregation ---------- */
 function filters(){
   return {q:$("q").value.trim().toLowerCase(),cls:$("cls").value,gender:$("gender").value,
-    perKm:+$("perKm").value||3,kmCount:+$("kmCount").value||1,topX:+$("topX").value||0,bestOnly:$("bestOnly").checked};
+    perKm:+$("perKm").value||1,totalMin:+$("totalMin").value||1,kmCount:+$("kmCount").value||1,topX:+$("topX").value||0,bestOnly:$("bestOnly").checked};
 }
 function filtered(f){
   const active=new Set(state.meets.filter(m=>m.active).map(m=>m.id));
@@ -222,6 +223,7 @@ function swimmers(rows,f){
   const out=[];
   for(const s of map.values()){
     const valid=s.rows.filter(r=>r.points>0).sort((a,b)=>b.points-a.points);
+    if(valid.length<f.totalMin)continue;   // färre genomförda lopp totalt än valt
     const perMeet=new Map();
     for(const r of valid)(perMeet.get(r.meetId)??perMeet.set(r.meetId,[]).get(r.meetId)).push(r);
     const kms=[...perMeet.values()].filter(rs=>rs.length>=f.perKm)
@@ -362,14 +364,14 @@ function filterSummary(){
   if(f.cls)parts.push("Åldersklass: "+$("cls").selectedOptions[0].text);
   if(f.gender)parts.push("Kön: "+(f.gender==="F"?"Damer":"Herrar"));
   if(f.topX)parts.push("Topp "+f.topX);
-  if(state.view==="swimmers")parts.push("Antal KM: "+f.kmCount,"Lopp per KM: "+f.perKm);
+  if(state.view==="swimmers")parts.push("Antal KM: "+f.kmCount,"Lopp per KM: "+f.perKm,"Totalt antal lopp: minst "+f.totalMin);
   else if(f.bestOnly)parts.push("Bara bästa resultat per simmare");
   return parts.join("  ·  ")||"Inga filter";
 }
 function makePdf(){
   const jsPDF=window.jspdf&&window.jspdf.jsPDF;
   if(!jsPDF||!jsPDF.API.autoTable){$("errors").innerHTML='<div class="err">PDF-biblioteket kunde inte laddas. Kontrollera internetanslutningen och ladda om sidan.</div>';return;}
-  const t=tableData(),view={swimmers:"Simmare",results:"Alla lopp"}[state.view];
+  const t=tableData(),view={swimmers:"Sammanställning",results:"Enskilda lopp"}[state.view];
   const portrait=t.cols.length<=6;
   const doc=new jsPDF({orientation:portrait?"portrait":"landscape",unit:"pt",format:"a4"});
   const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=36;
@@ -421,7 +423,7 @@ $("pdf").addEventListener("click",makePdf);
 // Filter med data-only visas bara på sin flik.
 function showViewFilters(){document.querySelectorAll("[data-only]").forEach(e=>{e.hidden=e.dataset.only!==state.view;});}
 showViewFilters();
-["q","cls","gender","topX","kmCount","perKm","bestOnly"].forEach(id=>$(id).addEventListener("input",render));
+["q","cls","gender","topX","kmCount","perKm","totalMin","bestOnly"].forEach(id=>$(id).addEventListener("input",render));
 document.querySelector(".tabs").addEventListener("click",e=>{
   const b=e.target.closest("button[data-view]"); if(!b)return;
   state.view=b.dataset.view;
