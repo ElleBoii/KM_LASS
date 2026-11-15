@@ -84,12 +84,15 @@ tr.open td{background:var(--row)}
 .colpick{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
 .colpick summary{cursor:pointer;font-weight:500}
 .colpick .opts{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px}
-.colpick label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.colpick .opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.controls.inner{background:none;border:0;padding:0;margin-top:10px}
+.badge{color:var(--accent);font-weight:600}
 /* Mobil: smalare marginaler och filtren i två kolumner. Extra kolumner som användaren väljer får gå utanför skärmen (sidscroll i tabellen). */
 @media (max-width:640px){
   .wrap{padding-inline:12px;padding-block:14px 32px;gap:12px}
   h1{font-size:1.9rem}
   .controls{padding:10px;gap:8px 10px;grid-template-columns:repeat(2,1fr)}
+  .field.grow{grid-column:1/-1}   /* namnsökningen tar hela raden (två kolumner + mellanrummet) */
   .bar{gap:8px}
   .tabs button{padding:5px 12px}
   table{font-size:13px}
@@ -115,16 +118,23 @@ tr.open td{background:var(--row)}
 
   <div class="meets" id="meets"></div>
 
-  <div class="controls">
+  <details class="colpick" id="filterbox"><summary>Filtrera simmare<span id="filtBadge" class="badge"></span></summary>
+    <div class="controls inner">
     <div class="field grow"><label for="q">Sök namn</label><input id="q" type="search" placeholder="t.ex. Lindqvist"></div>
     <div class="field"><label for="cls">Åldersklass</label><select id="cls"><option value="">Alla</option><option value="13-14">13-14 år</option><option value="15-16">15-16 år</option><option value="17-19">17-19 år</option><option value="20+">20 år och äldre</option></select></div>
     <div class="field"><label for="gender">Kön</label><select id="gender"><option value="">Alla</option><option value="F">Damer</option><option value="M">Herrar</option></select></div>
+    </div>
+  </details>
+
+  <div class="controls">
     <div class="field"><label for="topX">Visa topp</label><select id="topX"><option value="">Alla</option><option>5</option><option>10</option><option>15</option><option>25</option><option>50</option></select></div>
     <div class="field" data-only="swimmers"><label for="kmCount">Antal KM</label><select id="kmCount" title="Minsta antal KM som simmaren ska ha deltagit i"><option selected>1</option><option>2</option><option>3</option><option>4</option></select></div>
     <div class="field" data-only="swimmers"><label for="perKm">Antal lopp per KM</label><select id="perKm" title="Minsta antal lopp på vart och ett av KM:en (0 = inget krav)"><option>0</option><option selected>1</option><option>2</option><option>3</option><option>4</option></select></div>
     <div class="field" data-only="swimmers"><label for="total">Totalt antal lopp</label><select id="total" title="Antal lopp som sammanställningen baseras på (minst Antal KM × Antal lopp per KM)"></select></div>
     <label class="check" data-only="results"><input id="bestOnly" type="checkbox" checked> Visa endast bästa resultat</label>
   </div>
+
+  <div class="actions"><button class="btn" id="resetFilters" type="button">Nollställ filter</button></div>
 
   <div class="bar">
     <div class="tabs" role="tablist">
@@ -162,10 +172,10 @@ function fmtTime(h){
   const pad=n=>String(n).padStart(2,"0");
   return (hr?hr+":"+pad(m)+":":(m?m+":":""))+(m||hr?pad(s):s)+"."+pad(cs);
 }
-const eventLabel=r=>`${r.distance} m ${STROKES[r.stroke]||r.stroke||""}`.trim();
-// Kort gren för smala skärmar på fliken Enskilda lopp: "200 m fr", "50 m ry" osv.
+const eventLabel=r=>`${r.distance} ${STROKES[r.stroke]||r.stroke||""}`.trim();   // t.ex. "50 Bröstsim"
+// Kort gren för smala skärmar på fliken Enskilda lopp: "200 fr", "50 ry" osv.
 const STROKE_ABBR={FREE:"fr",BACK:"ry",BREAST:"br",FLY:"fj",MEDLEY:"me"};
-const eventShort=r=>`${r.distance} m ${STROKE_ABBR[r.stroke]||STROKES[r.stroke]||r.stroke||""}`.trim();
+const eventShort=r=>`${r.distance} ${STROKE_ABBR[r.stroke]||STROKES[r.stroke]||r.stroke||""}`.trim();
 
 // Läser data/index.json (lista över KM-filer) och sedan varje KM-fil.
 // Filerna skapas av lenex_extract.py och innehåller bara det som visas på sidan.
@@ -312,7 +322,13 @@ function sortRows(rows){
     return String(x??"").localeCompare(String(y??""),"sv")*dir;
   });
 }
+// Visar i rubriken hur många av filtren i "Filtrera simmare" som är aktiva, även när listan är hopfälld.
+function updateFilterBadge(){
+  const n=[$("q").value.trim(),$("cls").value,$("gender").value].filter(Boolean).length;
+  $("filtBadge").textContent=n?" · "+n+(n>1?" aktiva":" aktivt"):"";
+}
 function render(){
+  updateFilterBadge();
   const cols=visibleCols(state.view);
   const rows=sortRows(viewRows());
   const ptsKey=cols.find(c=>c.big)?.k; maxPts=Math.max(1,...rows.map(r=>r[ptsKey]||0),...rows.map(r=>r.best||0),...rows.map(r=>r.points||0));
@@ -455,6 +471,22 @@ function syncTotal(){
 ["q","cls","gender","topX","bestOnly"].forEach(id=>$(id).addEventListener("input",render));
 ["kmCount","perKm"].forEach(id=>$(id).addEventListener("input",()=>{syncTotal();render();}));
 $("total").addEventListener("input",()=>{state.totalFollowsMin=(+$("total").value===totalMin());render();});
+// Nollställ filter: alla filter går tillbaka till de värden de har när sidan öppnas (förvalen i HTML-koden),
+// och alla KM tas med igen. Vilka kolumner som visas och hur tabellen sorteras ändras inte.
+function resetFilters(){
+  for(const id of ["q","cls","gender","topX","kmCount","perKm","bestOnly"]){
+    const el=$(id);
+    if(el.type==="checkbox")el.checked=el.defaultChecked;
+    else if(el.tagName==="SELECT"){const i=[...el.options].findIndex(o=>o.defaultSelected);el.selectedIndex=i<0?0:i;}
+    else el.value=el.defaultValue;
+  }
+  state.meets.forEach(m=>{m.active=true;});
+  state.totalFollowsMin=true;
+  syncTotal();
+  renderMeets();
+  render();
+}
+$("resetFilters").addEventListener("click",resetFilters);
 document.querySelector(".tabs").addEventListener("click",e=>{
   const b=e.target.closest("button[data-view]"); if(!b)return;
   state.view=b.dataset.view;
