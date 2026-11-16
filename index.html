@@ -80,6 +80,8 @@ tr.open td{background:var(--row)}
 .detail th,.detail td{border-bottom:1px dashed var(--line);padding:4px 12px 4px 0;background:transparent}
 .empty{padding:36px 16px;text-align:center;color:var(--muted)}
 .copybox{width:100%;height:140px;font-family:var(--f-mono);font-size:.8rem;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px}
+th .hd{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;font-weight:600;color:var(--muted)}
+tr.grp td{background:var(--row);border-top:2px solid var(--accent);font-family:var(--f-display);font-size:1.15rem;font-weight:700;letter-spacing:.03em}
 .infobody{color:var(--muted);font-size:.85rem;max-width:75ch;display:grid;gap:14px;margin-top:10px}
 .infobody h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;font-weight:600;margin:0 0 5px}
 .infobody ul{margin:0;padding-left:18px;display:grid;gap:4px}
@@ -121,7 +123,7 @@ tr.open td{background:var(--row)}
 
   <div class="meets" id="meets"></div>
 
-  <details class="colpick" id="filterbox"><summary>Filtrera simmare<span id="filtBadge" class="badge"></span></summary>
+  <details class="colpick" id="filterbox" data-only="swimmers results"><summary>Filtrera simmare<span id="filtBadge" class="badge"></span></summary>
     <div class="controls inner">
     <div class="field grow"><label for="q">Sök namn</label><input id="q" type="search" placeholder="t.ex. Lindqvist"></div>
     <div class="field"><label for="cls">Åldersklass</label><select id="cls"><option value="">Alla</option><option value="13-14">13-14 år</option><option value="15-16">15-16 år</option><option value="17-19">17-19 år</option><option value="20+">20 år och äldre</option></select></div>
@@ -129,7 +131,7 @@ tr.open td{background:var(--row)}
     </div>
   </details>
 
-  <div class="controls">
+  <div class="controls" data-only="swimmers results">
     <div class="field"><label for="topX">Visa topp</label><select id="topX"><option value="">Alla</option><option>5</option><option>10</option><option>15</option><option>25</option><option>50</option></select></div>
     <div class="field" data-only="swimmers"><label for="kmCount">Antal KM</label><select id="kmCount" title="Minsta antal KM som simmaren ska ha deltagit i"><option selected>1</option><option>2</option><option>3</option><option>4</option></select></div>
     <div class="field" data-only="swimmers"><label for="perKm">Antal lopp per KM</label><select id="perKm" title="Minsta antal lopp på vart och ett av KM:en (0 = inget krav)"><option>0</option><option selected>1</option><option>2</option><option>3</option><option>4</option></select></div>
@@ -137,12 +139,19 @@ tr.open td{background:var(--row)}
     <label class="check" data-only="results"><input id="bestOnly" type="checkbox" checked> Visa endast bästa resultat</label>
   </div>
 
+  <div class="controls" id="evbox" data-only="event" hidden>
+    <div class="field"><label for="evGender">Kön</label><select id="evGender"><option value="">Alla</option><option value="F">Damer</option><option value="M">Herrar</option></select></div>
+    <div class="field"><label for="evCls">Åldersklass</label><select id="evCls"><option value="">Alla</option><option value="13-14">13-14 år</option><option value="15-16">15-16 år</option><option value="17-19">17-19 år</option><option value="20+">20 år och äldre</option></select></div>
+    <div class="field"><label for="evEvent">Gren</label><select id="evEvent"><option value="">Alla</option></select></div>
+  </div>
+
   <div class="actions"><button class="btn" id="resetFilters" type="button">Nollställ filter</button></div>
 
   <div class="bar">
     <div class="tabs" role="tablist">
       <button role="tab" data-view="swimmers" aria-selected="true">Sammanställning</button>
-      <button role="tab" data-view="results" aria-selected="false">Enskilda lopp</button>
+      <button role="tab" data-view="results" aria-selected="false">Högst FINA</button>
+      <button role="tab" data-view="event" aria-selected="false">Gren</button>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <span class="count" id="count"></span>
@@ -176,6 +185,12 @@ tr.open td{background:var(--row)}
           <li>Klasser för 12 år och yngre samt lopp utom tävlan tas inte med.</li>
         </ul>
       </section>
+      <section>
+        <h3>Fliken Gren</h3>
+        <ul>
+          <li>Visar den simmare som har snabbast tid (och därmed högst poäng) i varje gren, kön och åldersklass, bland de valda KM.</li>
+        </ul>
+      </section>
     </div>
   </details>
 </div>
@@ -199,9 +214,15 @@ function fmtTime(h){
   return (hr?hr+":"+pad(m)+":":(m?m+":":""))+(m||hr?pad(s):s)+"."+pad(cs);
 }
 const eventLabel=r=>`${r.distance} ${STROKES[r.stroke]||r.stroke||""}`.trim();   // t.ex. "50 Bröstsim"
-// Kort gren för smala skärmar på fliken Enskilda lopp: "200 fr", "50 ry" osv.
+// Kort gren för smala skärmar på fliken Högst FINA: "200 fr", "50 ry" osv.
 const STROKE_ABBR={FREE:"fr",BACK:"ry",BREAST:"br",FLY:"fj",MEDLEY:"me"};
 const eventShort=r=>`${r.distance} ${STROKE_ABBR[r.stroke]||STROKES[r.stroke]||r.stroke||""}`.trim();
+// Ordning för grenar på fliken Gren: simsätt fj, ry, br, fr, me och sedan distans 50, 100, 200, 400 ...
+const EVENT_STROKE_ORDER=["FLY","BACK","BREAST","FREE","MEDLEY"];
+const eventCompare=(a,b)=>EVENT_STROKE_ORDER.indexOf(a.stroke)-EVENT_STROKE_ORDER.indexOf(b.stroke)||(+a.distance)-(+b.distance);
+const EVENT_GENDERS=["M","F"];                       // först alla herr-klasser, sedan dam-klasserna
+const EVENT_CLASSES=["13-14","15-16","17-19","20+"];
+const GENDER_SV={M:"Herr",F:"Dam"};
 
 // Läser data/index.json (lista över KM-filer) och sedan varje KM-fil.
 // Filerna skapas av lenex_extract.py och innehåller bara det som visas på sidan.
@@ -311,10 +332,13 @@ const COLS={
     {k:"rank",l:"#",nosort:true},
     {k:"name",l:"Namn"},{k:"birth",l:"Född",num:true,opt:true},
     {k:"event",l:"Gren"},{k:"time",l:"Tid",num:true,opt:true},{k:"meet",l:"KM",opt:true},
-    {k:"points",l:"Poäng",num:true,pts:true,big:true}]
+    {k:"points",l:"Poäng",num:true,pts:true,big:true}],
+  event:[
+    {k:"name",l:"Namn"},{k:"genderL",l:"Kön"},{k:"clsL",l:"Åldersklass"},
+    {k:"time",l:"Tid",num:true,opt:true},{k:"points",l:"Poäng",num:true,opt:true}]
 };
 // Alla valfria kolumner är från början avstängda, så tabellen är slimmad. Användaren kryssar i de hen vill se.
-state.cols={swimmers:{},results:{}};
+state.cols=Object.fromEntries(Object.keys(COLS).map(v=>[v,{}]));
 for(const v of Object.keys(COLS))for(const c of COLS[v])if(c.opt)state.cols[v][c.k]=false;
 const visibleCols=v=>COLS[v].filter(c=>!c.opt||state.cols[v][c.k]);
 function renderColPick(){
@@ -338,6 +362,45 @@ function viewRows(){
   [...out].sort((a,b)=>b[k]-a[k]).forEach((r,i)=>{if(r[k]!==prev){place=i+1;prev=r[k];}r.rank=place;});
   return out;
 }
+// Fliken Gren: den simmare som har snabbast tid i varje gren, kön och åldersklass (bland valda KM),
+// enligt de tre filtren på fliken. Grenarna står i samma ordning som i gren-listan, herrar före damer.
+function eventGroups(){
+  const gender=$("evGender").value,cls=$("evCls").value,ev=$("evEvent").value;
+  const active=new Set(state.meets.filter(m=>m.active).map(m=>m.id));
+  const best=new Map();
+  for(const r of state.results){
+    if(!active.has(r.meetId)||r.status||r.time==null||!(r.points>0))continue;
+    if((gender&&r.gender!==gender)||(cls&&r.cls!==cls)||(ev&&r.distance+"|"+r.stroke!==ev))continue;
+    const k=r.distance+"|"+r.stroke+"|"+r.gender+"|"+r.cls;
+    const b=best.get(k);
+    if(!b||r.time<b.time||(r.time===b.time&&r.points>b.points))best.set(k,r);
+  }
+  const events=new Map();
+  for(const r of best.values())events.set(r.distance+"|"+r.stroke,r);
+  return [...events.values()].sort(eventCompare).map(e=>{
+    const rows=[];
+    for(const g of EVENT_GENDERS)for(const c of EVENT_CLASSES){
+      const r=best.get(e.distance+"|"+e.stroke+"|"+g+"|"+c);
+      if(r)rows.push({...r,name:`${r.first} ${r.last}`,genderL:GENDER_SV[g]||g,clsL:c});
+    }
+    return {label:eventLabel(e),rows};
+  });
+}
+function renderEvent(){
+  const cols=visibleCols("event"),groups=eventGroups();
+  let h="<thead><tr>"+cols.map(c=>`<th class="${c.num?"num":""}"><span class="hd">${c.l}</span></th>`).join("")+"</tr></thead><tbody>";
+  if(!groups.length)h+=`<tr><td colspan="${cols.length}" class="empty">${state.results.length?"Inga resultat matchar filtren.":"Inga resultat har publicerats ännu."}</td></tr>`;
+  for(const g of groups){
+    h+=`<tr class="grp"><td colspan="${cols.length}">${esc(g.label)}</td></tr>`;
+    for(const r of g.rows)h+="<tr>"+cols.map(c=>{
+      const v=c.k==="time"?fmtTime(r.time):c.k==="name"?`<span class="name">${esc(r.name)}</span>`:esc(r[c.k]??"");
+      return `<td class="${c.num?"num":""}">${v}</td>`;
+    }).join("")+"</tr>";
+  }
+  $("tbl").innerHTML=h+"</tbody>";
+  const n=groups.reduce((a,g)=>a+g.rows.length,0);
+  $("count").textContent=`${groups.length} ${groups.length===1?"gren":"grenar"}, ${n} resultat`;
+}
 function sortRows(rows){
   const [k,dir]=state.sort[state.view];
   return rows.sort((a,b)=>{
@@ -355,6 +418,7 @@ function updateFilterBadge(){
 }
 function render(){
   updateFilterBadge();
+  if(state.view==="event"){renderEvent();return;}
   const cols=visibleCols(state.view);
   const rows=sortRows(viewRows());
   const ptsKey=cols.find(c=>c.big)?.k; maxPts=Math.max(1,...rows.map(r=>r[ptsKey]||0),...rows.map(r=>r.best||0),...rows.map(r=>r.points||0));
@@ -398,6 +462,10 @@ function renderMeets(){
 }
 function refreshOptions(){
   renderMeets();
+  const sel=$("evEvent"),cur=sel.value,evs=new Map();
+  for(const r of state.results)if(r.stroke)evs.set(r.distance+"|"+r.stroke,r);
+  sel.innerHTML=`<option value="">Alla</option>`+[...evs.entries()].sort(([,a],[,b])=>eventCompare(a,b))
+    .map(([k,r])=>`<option value="${esc(k)}"${k===cur?" selected":""}>${esc(eventLabel(r))}</option>`).join("");
 }
 
 /* ---------- export (PDF) ---------- */
@@ -409,14 +477,29 @@ function cellText(r,c){
 }
 // Tabellen som visas just nu: de valda kolumnerna i vald sortering.
 function tableData(){
+  if(state.view==="event"){
+    const cols=visibleCols("event"),body=[];
+    for(const g of eventGroups()){
+      body.push([{content:g.label,colSpan:cols.length,styles:{fillColor:[222,235,242],textColor:[10,107,147],fontStyle:"bold",fontSize:11}}]);
+      for(const r of g.rows)body.push(cols.map(c=>c.k==="time"?fmtTime(r.time):String(r[c.k]??"")));
+    }
+    return {cols,head:cols.map(c=>c.l),body};
+  }
   const cols=visibleCols(state.view);
   const rows=sortRows(viewRows());
   return {cols,head:cols.map(c=>c.l),body:rows.map(r=>cols.map(c=>cellText(r,c)))};
 }
 function filterSummary(){
-  const f=filters(),parts=[];
+  const parts=[];
   const act=state.meets.filter(m=>m.active);
   if(act.length!==state.meets.length)parts.push("Tävlingar: "+act.map(m=>m.name).join(", "));
+  if(state.view==="event"){
+    if($("evGender").value)parts.push("Kön: "+$("evGender").selectedOptions[0].text);
+    if($("evCls").value)parts.push("Åldersklass: "+$("evCls").selectedOptions[0].text);
+    if($("evEvent").value)parts.push("Gren: "+$("evEvent").selectedOptions[0].text);
+    return parts.join("  ·  ")||"Inga filter";
+  }
+  const f=filters();
   if(f.q)parts.push("Namn: "+$("q").value.trim());
   if(f.cls)parts.push("Åldersklass: "+$("cls").selectedOptions[0].text);
   if(f.gender)parts.push("Kön: "+(f.gender==="F"?"Damer":"Herrar"));
@@ -428,7 +511,7 @@ function filterSummary(){
 function makePdf(){
   const jsPDF=window.jspdf&&window.jspdf.jsPDF;
   if(!jsPDF||!jsPDF.API.autoTable){$("errors").innerHTML='<div class="err">PDF-biblioteket kunde inte laddas. Kontrollera internetanslutningen och ladda om sidan.</div>';return;}
-  const t=tableData(),view={swimmers:"Sammanställning",results:"Enskilda lopp"}[state.view];
+  const t=tableData(),view={swimmers:"Sammanställning",results:"Högst FINA",event:"Gren"}[state.view];
   const portrait=t.cols.length<=6;
   const doc=new jsPDF({orientation:portrait?"portrait":"landscape",unit:"pt",format:"a4"});
   const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=36;
@@ -478,7 +561,7 @@ $("pdf").addEventListener("click",makePdf);
 
 /* ---------- events ---------- */
 // Filter med data-only visas bara på sin flik.
-function showViewFilters(){document.querySelectorAll("[data-only]").forEach(e=>{e.hidden=e.dataset.only!==state.view;});}
+function showViewFilters(){document.querySelectorAll("[data-only]").forEach(e=>{e.hidden=!e.dataset.only.split(" ").includes(state.view);});}
 showViewFilters();
 // Totalt antal lopp kan inte vara lägre än Antal KM x Antal lopp per KM (lägst 1) och högst 4 x 4.
 // Det följer minimivärdet tills användaren väljer ett högre.
@@ -494,13 +577,13 @@ function syncTotal(){
   sel.innerHTML=h;
   sel.value=String(val);
 }
-["q","cls","gender","topX","bestOnly"].forEach(id=>$(id).addEventListener("input",render));
+["q","cls","gender","topX","bestOnly","evGender","evCls","evEvent"].forEach(id=>$(id).addEventListener("input",render));
 ["kmCount","perKm"].forEach(id=>$(id).addEventListener("input",()=>{syncTotal();render();}));
 $("total").addEventListener("input",()=>{state.totalFollowsMin=(+$("total").value===totalMin());render();});
 // Nollställ filter: alla filter går tillbaka till de värden de har när sidan öppnas (förvalen i HTML-koden),
 // och alla KM tas med igen. Vilka kolumner som visas och hur tabellen sorteras ändras inte.
 function resetFilters(){
-  for(const id of ["q","cls","gender","topX","kmCount","perKm","bestOnly"]){
+  for(const id of ["q","cls","gender","topX","kmCount","perKm","bestOnly","evGender","evCls","evEvent"]){
     const el=$(id);
     if(el.type==="checkbox")el.checked=el.defaultChecked;
     else if(el.tagName==="SELECT"){const i=[...el.options].findIndex(o=>o.defaultSelected);el.selectedIndex=i<0?0:i;}
