@@ -80,6 +80,7 @@ tr.open td{background:var(--row)}
 .detail th,.detail td{border-bottom:1px dashed var(--line);padding:4px 12px 4px 0;background:transparent}
 .empty{padding:36px 16px;text-align:center;color:var(--muted)}
 .copybox{width:100%;height:140px;font-family:var(--f-mono);font-size:.8rem;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px}
+td.ctr{text-align:center}
 th .hd{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;font-weight:600;color:var(--muted)}
 tr.grp td{background:var(--row);border-top:2px solid var(--accent);font-family:var(--f-display);font-size:1.15rem;font-weight:700;letter-spacing:.03em}
 .infobody{color:var(--muted);font-size:.85rem;max-width:75ch;display:grid;gap:14px;margin-top:10px}
@@ -122,6 +123,8 @@ tr.grp td{background:var(--row);border-top:2px solid var(--accent);font-family:v
   <div id="errors"></div>
 
   <div class="meets" id="meets"></div>
+
+  <div class="actions"><button class="btn" id="allPdf" type="button">Generera PDF med alla resultat</button></div>
 
   <details class="colpick" id="filterbox" data-only="swimmers results"><summary>Filtrera simmare<span id="filtBadge" class="badge"></span></summary>
     <div class="controls inner">
@@ -183,6 +186,13 @@ tr.grp td{background:var(--row);border-top:2px solid var(--accent);font-family:v
           <li>Diskade och strukna lopp ger inga poäng.</li>
           <li>Grenar med färre än fem startande (alla åldersklasser räknade ihop) tas inte med.</li>
           <li>Klasser för 12 år och yngre samt lopp utom tävlan tas inte med.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>PDF med alla resultat</h3>
+        <ul>
+          <li>Knappen under tävlingarna skapar en PDF med alla KM, ett i taget. Grenarna kommer i den ordning de kördes, och för varje gren först damerna och sedan herrarna.</li>
+          <li>Placeringen rangordnas efter snabbast tid i hela grenen, alla åldersklasser tillsammans. Valda filter och avstängda KM påverkar inte den PDF:en.</li>
         </ul>
       </section>
       <section>
@@ -253,7 +263,8 @@ function addMeet(d){
   if(state.meets.some(x=>x.name===m.name&&x.date===m.date))throw new Error(`${m.name} (${m.date}) är redan inläst.`);
   const rows=d.results.map(r=>({meetId:m.id,first:r.first,last:r.last,birth:r.birth,gender:r.gender,club:r.club,
     key:(r.first+"|"+r.last).toLowerCase().trim()+"|"+r.birth+"|"+r.gender,
-    distance:r.distance,stroke:r.stroke,course:m.course,date:m.date,time:r.time,status:r.status,points:r.points,cls:r.cls}));
+    distance:r.distance,stroke:r.stroke,course:m.course,date:m.date,time:r.time,status:r.status,points:r.points,cls:r.cls,
+    ev:r.ev,pl:r.pl}));   // ev = eventnummer (ordning på tävlingen), pl = placering inom åldersklassen
   state.meets.push(m); state.results.push(...rows);
 }
 
@@ -334,7 +345,7 @@ const COLS={
     {k:"event",l:"Gren"},{k:"time",l:"Tid",num:true,opt:true},{k:"meet",l:"KM",opt:true},
     {k:"points",l:"Poäng",num:true,pts:true,big:true}],
   event:[
-    {k:"name",l:"Namn"},{k:"genderL",l:"Kön"},{k:"clsL",l:"Åldersklass"},
+    {k:"name",l:"Namn"},{k:"genderL",l:"Kön",ctr:true},{k:"clsL",l:"Åldersklass",ctr:true},
     {k:"time",l:"Tid",num:true,opt:true},{k:"points",l:"Poäng",num:true,opt:true}]
 };
 // Alla valfria kolumner är från början avstängda, så tabellen är slimmad. Användaren kryssar i de hen vill se.
@@ -394,7 +405,7 @@ function renderEvent(){
     h+=`<tr class="grp"><td colspan="${cols.length}">${esc(g.label)}</td></tr>`;
     for(const r of g.rows)h+="<tr>"+cols.map(c=>{
       const v=c.k==="time"?fmtTime(r.time):c.k==="name"?`<span class="name">${esc(r.name)}</span>`:esc(r[c.k]??"");
-      return `<td class="${c.num?"num":""}">${v}</td>`;
+      return `<td class="${c.num?"num":c.ctr?"ctr":""}">${v}</td>`;
     }).join("")+"</tr>";
   }
   $("tbl").innerHTML=h+"</tbody>";
@@ -546,6 +557,7 @@ function makePdf(){
       // Rubrikerna ska stå över sina kolumner: siffror till höger, rangordning i mitten.
       if(d.section==="head"){d.cell.styles.halign=c.k==="rank"?"center":c.num?"right":"left";return;}
       if(d.section!=="body")return;
+      if(c.ctr)d.cell.styles.halign="center";
       if(c.k==="name"||c.big)d.cell.styles.fontStyle="bold";
       if(c.k==="rank")d.cell.styles.textColor=[91,111,125];
     },
@@ -558,6 +570,105 @@ function makePdf(){
   doc.save("km-sammanstallning-"+state.view+"-"+new Date().toISOString().slice(0,10)+".pdf");
 }
 $("pdf").addEventListener("click",makePdf);
+
+// Alla resultat för ett KM och ett kön, grenarna i den ordning de kördes (eventnummer i resultatfilen).
+// Placeringen räknas efter snabbast tid i hela grenen, alla åldersklasser tillsammans (lika tid ger samma plats).
+function meetGroups(m,gender){
+  const nr=(a,b)=>a===b?0:a-b;   // Infinity (saknat eventnummer) hamnar sist
+  const byName=(a,b)=>(a.last+a.first).localeCompare(b.last+b.first,"sv");
+  const grens=new Map();
+  for(const r of state.results){
+    if(r.meetId!==m.id||r.gender!==gender)continue;
+    const gk=r.distance+"|"+r.stroke;
+    let g=grens.get(gk);
+    if(!g){g={r,nr:Infinity,rows:[]};grens.set(gk,g);}
+    if(r.ev!=null)g.nr=Math.min(g.nr,r.ev);
+    g.rows.push(r);
+  }
+  return [...grens.values()].sort((a,b)=>nr(a.nr,b.nr)||eventCompare(a.r,b.r)).map(g=>{
+    const ok=g.rows.filter(r=>!r.status&&r.time!=null).sort((a,b)=>a.time-b.time||b.points-a.points||byName(a,b));
+    const place=new Map();
+    ok.forEach((r,i)=>place.set(r,(i&&ok[i-1].time===r.time)?place.get(ok[i-1]):i+1));
+    const rest=g.rows.filter(r=>!place.has(r)).sort(byName);   // diskade m.fl. står sist utan placering
+    return {label:eventLabel(g.r),nr:g.nr,r:g.r,rows:[...ok,...rest].map(r=>({
+      place:place.has(r)?String(place.get(r)):"–",name:`${r.first} ${r.last}`,cls:r.cls,
+      time:r.status?(BAD_STATUS[r.status]||r.status):fmtTime(r.time),points:r.points?String(r.points):"–"}))};
+  });
+}
+// Alla block för ett KM: en gren i taget i den ordning de kördes, och för varje gren först damerna, sedan herrarna.
+function meetBlocks(m){
+  const nr=(a,b)=>a===b?0:a-b;
+  const sexes=[["F","Damer"],["M","Herrar"]];
+  const bySex=Object.fromEntries(sexes.map(([g])=>[g,meetGroups(m,g)]));
+  const grens=new Map();
+  for(const [g]of sexes)for(const x of bySex[g]){
+    const e=grens.get(x.label);
+    if(!e)grens.set(x.label,{label:x.label,nr:x.nr,r:x.r});else e.nr=Math.min(e.nr,x.nr);
+  }
+  const blocks=[];
+  for(const e of [...grens.values()].sort((a,b)=>nr(a.nr,b.nr)||eventCompare(a.r,b.r)))
+    for(const [g,title] of sexes){
+      const x=bySex[g].find(y=>y.label===e.label);
+      if(x)blocks.push({label:e.label,gender:g,title,rows:x.rows});
+    }
+  return blocks;
+}
+function makeAllPdf(){
+  const jsPDF=window.jspdf&&window.jspdf.jsPDF;
+  if(!jsPDF||!jsPDF.API.autoTable){$("errors").innerHTML='<div class="err">PDF-biblioteket kunde inte laddas. Kontrollera internetanslutningen och ladda om sidan.</div>';return;}
+  if(!state.meets.length){$("errors").innerHTML='<div class="err">Det finns inga resultat att skapa en PDF av.</div>';return;}
+  const doc=new jsPDF({orientation:"portrait",unit:"pt",format:"a4"});
+  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=36;
+  const head=["Plac.","Namn","Åldersklass","Tid","Poäng"];
+  const align=["center","left","center","right","right"];
+  const colStyles={0:{cellWidth:38},2:{cellWidth:80},3:{cellWidth:66},4:{cellWidth:50}};
+  const colorOf={F:[10,107,147],M:[22,62,104]};   // damer: blå, herrar: mörkare blå
+  state.meets.forEach((m,mi)=>{
+    const blocks=meetBlocks(m),n=blocks.reduce((a,b)=>a+b.rows.length,0);
+    if(!n)return;
+    if(mi>0)doc.addPage();
+    // KM-rubrik överst på KM:ets första sida
+    doc.setFillColor(10,107,147);doc.rect(0,0,W,62,"F");
+    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(22);doc.text(m.name,M,32);
+    doc.setFont("helvetica","normal");doc.setFontSize(10);
+    doc.text([m.date,COURSE[m.course]||m.course,n+" resultat"].filter(Boolean).join("  ·  "),M,50);
+    doc.text("KM Sammanställning – Alla resultat",W-M,50,{align:"right"});
+    let y=84;
+    for(const b of blocks){
+      const col=colorOf[b.gender];
+      // Rubrik och några rader ska få plats tillsammans, annars börjar blocket på nästa sida
+      if(y+24+18*(1+Math.min(4,b.rows.length))>H-50){doc.addPage();y=M;}
+      doc.setFont("helvetica","bold");doc.setFontSize(13);doc.setTextColor(...col);doc.text(b.label+"  ·  "+b.title,M,y+12);
+      const startPage=doc.internal.getCurrentPageInfo().pageNumber;
+      doc.autoTable({head:[head],body:b.rows.map(r=>[r.place,r.name,r.cls,r.time,r.points]),startY:y+20,
+        margin:{left:M,right:M,top:M+24,bottom:50},tableWidth:W-2*M,theme:"striped",
+        // Fortsätter blocket på en ny sida visas vilken gren och vilket kön det är överst
+        didDrawPage:d=>{
+          if(d.pageNumber>startPage){doc.setFont("helvetica","bold");doc.setFontSize(11);doc.setTextColor(...col);doc.text(m.name+" · "+b.label+" · "+b.title+" (fortsättning)",M,M+10);}
+        },
+        styles:{font:"helvetica",fontSize:9,cellPadding:{top:3.5,bottom:3.5,left:6,right:6},textColor:[15,34,48],overflow:"linebreak"},
+        headStyles:{fillColor:col,textColor:[255,255,255],fontStyle:"bold",fontSize:8.5},
+        alternateRowStyles:{fillColor:[240,245,248]},columnStyles:colStyles,
+        didParseCell:d=>{
+          const i=d.column.index;
+          d.cell.styles.halign=align[i];
+          if(d.section!=="body")return;
+          if(i===1||i===4)d.cell.styles.fontStyle="bold";
+          if(i===0)d.cell.styles.textColor=[91,111,125];
+        }});
+      y=doc.lastAutoTable.finalY+18;
+    }
+  });
+  // Sidfot på alla sidor
+  const pages=doc.getNumberOfPages(),today=new Date().toLocaleDateString("sv-SE");
+  for(let i=1;i<=pages;i++){
+    doc.setPage(i);doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(130,130,130);
+    doc.text("Sida "+i+" av "+pages,M,H-20);
+    doc.text("Alla resultat · Skapad "+today,W-M,H-20,{align:"right"});
+  }
+  doc.save("km-alla-resultat-"+new Date().toISOString().slice(0,10)+".pdf");
+}
+$("allPdf").addEventListener("click",makeAllPdf);
 
 /* ---------- events ---------- */
 // Filter med data-only visas bara på sin flik.

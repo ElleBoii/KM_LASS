@@ -129,6 +129,7 @@ def las_fil(sokvag):
                     "distans": ss.get("distance") if ss is not None else "",
                     "simsatt": ss.get("stroke") if ss is not None else "",
                     "stafett": int_or_none(ss.get("relaycount") if ss is not None else 1) or 1,
+                    "nr": int_or_none(ev.get("number")),
                     "kon": ev.get("gender") or "",
                     "datum": ses.get("date") or "",
                     "bana": ses.get("course") or meet.get("course") or "",
@@ -168,12 +169,15 @@ def las_fil(sokvag):
                         "distans": ev.get("distans", ""), "simsatt": ev.get("simsatt", ""),
                         "gren": f"{ev.get('distans', '')} {ev.get('simsatt', '')}".strip(),
                         "bana": ev.get("bana", ""),
+                        "evnr": ev.get("nr"),
                         "status": status,
                         "tid_sek": None if (status and status != "EXH") else sek,
                         "poang": poang if (not status or status == "EXH") and poang is not None else 0,
                         "placering": placering.get(res.get("resultid")),
                         "alder": alder, "klass_min": amin, "klass_max": amax,
-                        "ak": alder_klass(amin if amin and amin > 0 else alder),
+                        # Åldersklassen räknas ur födelseåret (ålder = tävlingsår minus födelseår). Klassen i Lenex-filen används bara om
+                        # åldern är okänd eller 12 år eller yngre, eftersom filen kan ha fel (KM 1 hade alla herrar i klassen 13-14).
+                        "ak": alder_klass(alder) or alder_klass(amin if amin and amin > 0 else None),
                         "ung": (amax is not None and 0 <= amax <= (HOPPA_OVER_T_O_M_ALDER or -1))
                                or (not (amin and amin > 0) and alder is not None
                                    and 0 < alder <= (HOPPA_OVER_T_O_M_ALDER or -1)),
@@ -290,7 +294,8 @@ def skriv(namn, kolumner, rader):
 def skriv_webbdata(rader):
     """Skriver den slimmade datan som hemsidan läser, en fil per KM, plus data/index.json.
 
-    Bara det som visas på sidan tas med: namn, födelseår, kön, klubb, gren, tid, poäng och åldersklass.
+    Bara det som visas på sidan tas med: namn, födelseår, kön, klubb, gren, tid, poäng och åldersklass,
+    samt eventnumret (ordningen grenarna kördes i) och placeringen inom åldersklassen för PDF:en med alla resultat.
     Licensnummer, fullständigt födelsedatum, mellantider och allt som filtrerats bort publiceras aldrig.
     """
     per = {}
@@ -302,11 +307,12 @@ def skriv_webbdata(rader):
     ut.mkdir(exist_ok=True)
     for (namn, datum, bana), rs in per.items():
         fil = re.sub(r"[^A-Za-z0-9]+", "_", f"{namn}_{datum}").strip("_") + ".json"
-        data = {"version": 1, "meet": {"name": namn, "date": datum, "course": bana},
+        data = {"version": 2, "meet": {"name": namn, "date": datum, "course": bana},
                 "results": [{"first": r["fornamn"], "last": r["efternamn"], "birth": r["fodd"], "gender": r["kon"],
                              "club": r["klubb"], "distance": r["distans"], "stroke": r["simsatt"],
                              "time": None if r["tid_sek"] is None else round(r["tid_sek"] * 100),
-                             "status": r["status"], "points": r["poang"], "cls": r["ak"]} for r in rs]}
+                             "status": r["status"], "points": r["poang"], "cls": r["ak"],
+                             "ev": r["evnr"], "pl": r["placering"]} for r in rs]}
         with open(ut / fil, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
         print(f"  hemsidan: {len(rs)} resultat -> {ut / fil}")
